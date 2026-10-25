@@ -30,6 +30,9 @@ export class MemoryTabStore implements TabStore {
   async listClosed() {
     return [...this.records.values()].filter((r) => r.closedAt !== undefined);
   }
+  async delete(id: string) {
+    this.records.delete(id);
+  }
 }
 
 export class MemorySessionStore implements SessionStore {
@@ -68,6 +71,12 @@ export class MemoryRunStore implements RunStore {
   }
   async latest() {
     return [...this.runs.values()].sort((a, b) => a.at - b.at).pop();
+  }
+  async list() {
+    return [...this.runs.values()];
+  }
+  async delete(id: string) {
+    this.runs.delete(id);
   }
 }
 

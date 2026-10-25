@@ -61,6 +61,9 @@ export class IdbTabStore implements TabStore {
   async listClosed() {
     return (await (await getDB()).getAll('tabs')).filter((r) => r.closedAt !== undefined);
   }
+  async delete(id: string) {
+    await (await getDB()).delete('tabs', id);
+  }
 }
 
 export class IdbItemStore implements ItemStore {
@@ -88,6 +91,12 @@ export class IdbRunStore implements RunStore {
   async latest() {
     const rows = await (await getDB()).getAllFromIndex('runs', 'by-at');
     return rows[rows.length - 1];
+  }
+  async list() {
+    return (await getDB()).getAll('runs');
+  }
+  async delete(id: string) {
+    await (await getDB()).delete('runs', id);
   }
 }
 
