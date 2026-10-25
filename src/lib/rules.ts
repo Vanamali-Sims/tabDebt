@@ -1,5 +1,5 @@
 import { hostOf } from './format';
-import type { TabRecord, Verdict } from './types';
+import type { MemoryRule, TabRecord, Verdict } from './types';
 
 const DAY = 24 * 3_600_000;
 
@@ -19,18 +19,12 @@ export const DEFAULT_EXCLUSIONS = [
   'health',
 ];
 
-export interface MemoryRule {
-  host: string;
-  action: 'keep';
-  count: number;
-}
-
 export interface RuleContext {
   now: number;
   /** Our record id of the tab the user is looking at right now. */
   activeRecordId?: string;
   exclusions: string[];
-  memory: MemoryRule[];
+  memory: Pick<MemoryRule, 'host' | 'action' | 'count'>[];
   /** Record ids of tabs that other tabs were opened from (open or closed). */
   hasChildren: Set<string>;
 }

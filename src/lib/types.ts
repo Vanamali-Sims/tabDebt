@@ -68,3 +68,67 @@ export interface Verdict {
   summary?: string;
   task?: TaskDraft;
 }
+
+export interface SavedItem {
+  id: string;
+  kind: 'task' | 'read' | 'project';
+  title: string;
+  url: string;
+  summary?: string;
+  project?: string;
+  due?: string;
+  done: boolean;
+  createdAt: number;
+  runId: string;
+}
+
+/** What actually happened to one tab when a plan was applied. */
+export interface AppliedDecision {
+  recordId: string;
+  action: Action;
+  url: string;
+  title: string;
+  itemId?: string;
+}
+
+/** One applied review, kept so it can be undone. */
+export interface Run {
+  id: string;
+  at: number;
+  applied: AppliedDecision[];
+  undoneAt?: number;
+}
+
+/** A correction the user made that should shape future reviews. */
+export interface MemoryRule {
+  host: string;
+  action: 'keep';
+  count: number;
+  updatedAt: number;
+}
+
+export interface ItemStore {
+  get(id: string): Promise<SavedItem | undefined>;
+  put(item: SavedItem): Promise<void>;
+  delete(id: string): Promise<void>;
+  list(): Promise<SavedItem[]>;
+}
+
+export interface RunStore {
+  get(id: string): Promise<Run | undefined>;
+  put(run: Run): Promise<void>;
+  latest(): Promise<Run | undefined>;
+}
+
+export interface MemoryStore {
+  list(): Promise<MemoryRule[]>;
+  get(host: string): Promise<MemoryRule | undefined>;
+  put(rule: MemoryRule): Promise<void>;
+}
+
+export interface Repos {
+  tabs: TabStore;
+  items: ItemStore;
+  runs: RunStore;
+  memory: MemoryStore;
+}
