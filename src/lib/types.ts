@@ -124,6 +124,7 @@ export interface MemoryStore {
   list(): Promise<MemoryRule[]>;
   get(host: string): Promise<MemoryRule | undefined>;
   put(rule: MemoryRule): Promise<void>;
+  delete(host: string): Promise<void>;
 }
 
 export interface Repos {
@@ -132,3 +133,6 @@ export interface Repos {
   runs: RunStore;
   memory: MemoryStore;
 }
+
+/** A verdict plus whether the user left it ticked in the review. */
+export type PlanEntry = Verdict & { approved: boolean };

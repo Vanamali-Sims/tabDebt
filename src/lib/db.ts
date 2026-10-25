@@ -101,6 +101,9 @@ export class IdbMemoryStore implements MemoryStore {
   async put(rule: MemoryRule) {
     await (await getDB()).put('memory', rule);
   }
+  async delete(host: string) {
+    await (await getDB()).delete('memory', host);
+  }
 }
 
 export const idbRepos = (): Repos => ({
