@@ -71,7 +71,17 @@ export async function applyPlan(
     const tabId = rec.tabId;
     await repos.tabs.put({ ...rec, tabId: null, closedAt: t, closedBy: 'agent' });
     await tabs.remove(tabId).catch(() => {});
-    applied.push({ recordId: rec.id, action: entry.action, url: rec.url, title: rec.title, itemId });
+    applied.push({
+      recordId: rec.id,
+      action: entry.action,
+      url: rec.url,
+      title: rec.title,
+      itemId,
+      reason: entry.reason,
+      source: entry.source,
+      looked: entry.looked,
+      confidence: entry.confidence,
+    });
   }
 
   const run: Run = { id: runId, at: t, applied };

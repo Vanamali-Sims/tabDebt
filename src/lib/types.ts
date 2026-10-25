@@ -93,6 +93,11 @@ export interface AppliedDecision {
   url: string;
   title: string;
   itemId?: string;
+  /** Why it was proposed and who decided, kept so a surprising close can be explained later. */
+  reason: string;
+  source: Verdict['source'];
+  looked?: string[];
+  confidence: number;
 }
 
 /** One applied review, kept so it can be undone. */

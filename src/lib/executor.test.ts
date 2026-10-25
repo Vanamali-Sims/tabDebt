@@ -84,6 +84,17 @@ describe('applyPlan', () => {
   });
 });
 
+describe('decision log', () => {
+  it('keeps why each tab was closed, who decided, and what the agent looked at', async () => {
+    const { run } = await applyPlan(
+      [entry('a', 'done', { reason: 'Old search', source: 'rules', confidence: 0.8, looked: ['read page'] })],
+      repos, api,
+    );
+    const stored = await repos.runs.get(run.id);
+    expect(stored?.applied[0]).toMatchObject({ reason: 'Old search', source: 'rules', confidence: 0.8, looked: ['read page'] });
+  });
+});
+
 describe('undoRun', () => {
   it('reopens tabs, removes saved items, and only works once', async () => {
     const { run } = await applyPlan([entry('a', 'done'), entry('b', 'read')], repos, api);
