@@ -13,7 +13,10 @@
     "compile": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "eval": "vitest run --config vitest.eval.config.ts",
+    "smoke": "node scripts/smoke.cjs",
+    "e2e": "node scripts/e2e.cjs && node scripts/e2e-agent.cjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.88",
@@ -28,6 +31,7 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.3.6",
+    "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@wxt-dev/module-react": "^1.2.2",
