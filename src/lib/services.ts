@@ -30,6 +30,7 @@ export async function generatePlan(abortSignal?: AbortSignal): Promise<PlanResul
 
 export async function applyApprovedPlan(plan: PlanEntry[]): Promise<ApplyResult> {
   const result = await applyPlan(plan, repos, tabsApi);
+  await chrome.storage.session.remove('reminding'); // the reminder has done its job
   notifyChanged();
   return result;
 }
