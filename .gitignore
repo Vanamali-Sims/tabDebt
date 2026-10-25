@@ -1,0 +1,11 @@
+node_modules
+.output
+.wxt
+dist
+*.log
+.env
+.env.*
+.DS_Store
+
+# Private working notes live here and are never committed
+context/
