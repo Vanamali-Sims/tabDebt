@@ -1,6 +1,8 @@
 import { ChromeSessionStore, IdbTabStore } from '@/src/lib/db';
 import { notifyChanged } from '@/src/lib/channel';
 import { REMINDER_HOUR, REMINDER_MIN_TABS, REMINDER_MINUTE, badgeText, msUntilNext } from '@/src/lib/badge';
+import { idbRepos } from '@/src/lib/db';
+import { prune } from '@/src/lib/retention';
 import { Tracker } from '@/src/lib/tracker';
 import type { TabInfo } from '@/src/lib/types';
 
@@ -49,8 +51,11 @@ export default defineBackground(() => {
   chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   chrome.idle.setDetectionInterval(60);
 
+  const forgetOld = () => void prune(idbRepos()).catch((err) => console.error('[tab-debt] prune failed', err));
+
   const sync = async () => {
     const tabs = (await chrome.tabs.query({})).map(toInfo).filter((t): t is TabInfo => !!t);
+    forgetOld();
     await tracker.reconcile(tabs);
     const current = await activeTabInFocusedWindow();
     if (current) await tracker.resume(current);
@@ -62,6 +67,7 @@ export default defineBackground(() => {
     chrome.alarms.create('end-of-day', { when: Date.now() + msUntilNext(REMINDER_HOUR, REMINDER_MINUTE), periodInMinutes: 24 * 60 });
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== 'end-of-day') return;
+    forgetOld(); // once a day is plenty
     run('end-of-day reminder', async () => {
       if ((await store.listOpen()).length >= REMINDER_MIN_TABS) await chrome.storage.session.set({ reminding: true });
     });

@@ -42,6 +42,7 @@ export interface TabStore {
   put(rec: TabRecord): Promise<void>;
   listOpen(): Promise<TabRecord[]>;
   listClosed(): Promise<TabRecord[]>;
+  delete(id: string): Promise<void>;
 }
 
 export interface SessionStore {
@@ -127,6 +128,8 @@ export interface RunStore {
   get(id: string): Promise<Run | undefined>;
   put(run: Run): Promise<void>;
   latest(): Promise<Run | undefined>;
+  list(): Promise<Run[]>;
+  delete(id: string): Promise<void>;
 }
 
 export interface MemoryStore {
