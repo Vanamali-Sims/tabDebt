@@ -64,6 +64,10 @@ export interface Verdict {
   reason: string;
   confidence: number;
   source: 'rules' | 'memory' | 'agent' | 'fallback';
+  /** What the agent looked at before deciding, for the "why" view and debugging. */
+  looked?: string[];
+  /** Set when the page tried to give the agent instructions. */
+  flagged?: boolean;
   project?: string;
   summary?: string;
   task?: TaskDraft;
