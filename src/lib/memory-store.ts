@@ -82,6 +82,9 @@ export class MemoryMemoryStore implements MemoryStore {
   async put(rule: MemoryRule) {
     this.rules.set(rule.host, rule);
   }
+  async delete(host: string) {
+    this.rules.delete(host);
+  }
 }
 
 export const memoryRepos = (): Repos => ({
