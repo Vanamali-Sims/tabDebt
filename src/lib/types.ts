@@ -48,3 +48,23 @@ export interface SessionStore {
   get(): Promise<ActiveSession | null>;
   set(s: ActiveSession | null): Promise<void>;
 }
+
+/** What the agent can propose for a tab. */
+export type Action = 'done' | 'read' | 'project' | 'task' | 'keep';
+
+export interface TaskDraft {
+  title: string;
+  due?: string;
+}
+
+/** One decision about one tab, with the reason shown to the user. */
+export interface Verdict {
+  recordId: string;
+  action: Action;
+  reason: string;
+  confidence: number;
+  source: 'rules' | 'memory' | 'agent' | 'fallback';
+  project?: string;
+  summary?: string;
+  task?: TaskDraft;
+}
