@@ -30,6 +30,8 @@ export interface AgentOutput {
   verdicts: Verdict[];
   usage: { inputTokens: number; outputTokens: number; steps: number; pageReads: number };
   flagged: number;
+  /** Set when the model failed part-way. Decisions made before the failure are still used. */
+  error?: unknown;
 }
 
 const decisionSchema = z.object({
@@ -117,26 +119,37 @@ export async function runAgent(input: AgentInput): Promise<AgentOutput> {
 
   const lines = [...refs].map(([ref, t]) => describeTab(ref, t, now, t.openerRecordId ? byId.get(t.openerRecordId) : undefined, childCount.get(t.id) ?? 0));
 
-  const result = await generateText({
-    model: input.model,
-    system: SYSTEM_PROMPT,
-    prompt: buildUserPrompt(lines, input.projectHints ?? []),
-    tools,
-    // Stop when every tab has a decision, or the step budget runs out. Nothing runs unbounded.
-    stopWhen: [isStepCount(input.maxSteps), () => decided.size >= refs.size],
-    temperature: 0,
-    abortSignal: input.abortSignal,
-  });
+  let usage: { inputTokens?: number; outputTokens?: number } = {};
+  let steps = 0;
+  let error: unknown;
+  try {
+    const result = await generateText({
+      model: input.model,
+      system: SYSTEM_PROMPT,
+      prompt: buildUserPrompt(lines, input.projectHints ?? []),
+      tools,
+      // Stop when every tab has a decision, or the step budget runs out. Nothing runs unbounded.
+      stopWhen: [isStepCount(input.maxSteps), () => decided.size >= refs.size],
+      temperature: 0,
+      abortSignal: input.abortSignal,
+    });
+    usage = result.totalUsage;
+    steps = result.steps.length;
+  } catch (err) {
+    // A failure after some decisions were submitted should not throw those decisions away.
+    if (decided.size === 0) throw err;
+    error = err;
+  }
 
-  const usage = result.totalUsage;
   return {
     verdicts: finalizeVerdicts(refs, decided, looked, flagged, now),
     usage: {
       inputTokens: usage.inputTokens ?? 0,
       outputTokens: usage.outputTokens ?? 0,
-      steps: result.steps.length,
+      steps,
       pageReads,
     },
     flagged: flagged.size,
+    error,
   };
 }

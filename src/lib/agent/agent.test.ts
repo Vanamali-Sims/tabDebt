@@ -107,4 +107,22 @@ describe('runAgent', () => {
     expect(out.verdicts.every((v) => v.source === 'agent')).toBe(true);
     expect(JSON.stringify(m.doGenerateCalls[1]?.prompt)).toContain('Unknown ref t99');
   });
+
+  it('keeps decisions already submitted when the model fails part-way', async () => {
+    const m = new MockLanguageModelV4({
+      doGenerate: [
+        step({ name: 'submit_plan', input: { decisions: [decision('t1', { action: 'done', confidence: 0.95 })] } }),
+        async () => { throw new Error('429 rate limit'); },
+      ] as never,
+    });
+    const out = await runAgent(base({ model: m }));
+    expect(out.error).toBeInstanceOf(Error);
+    expect(out.verdicts[0]).toMatchObject({ action: 'done', source: 'agent' });
+    expect(out.verdicts[1]).toMatchObject({ source: 'fallback' });
+  });
+
+  it('throws when the model fails before deciding anything', async () => {
+    const m = new MockLanguageModelV4({ doGenerate: async () => { throw new Error('401'); } });
+    await expect(runAgent(base({ model: m }))).rejects.toThrow('401');
+  });
 });
