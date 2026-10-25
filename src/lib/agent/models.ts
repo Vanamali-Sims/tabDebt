@@ -7,7 +7,9 @@ import type { Settings } from '../settings';
 
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1';
 
-export class ConfigError extends Error {}
+export class ConfigError extends Error {
+  override name = 'ConfigError';
+}
 
 /** Where requests for these settings go. Shown to the user and used to ask for permission. */
 export function endpointOf(s: Settings): string | null {
