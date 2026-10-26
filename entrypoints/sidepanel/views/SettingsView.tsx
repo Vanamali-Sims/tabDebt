@@ -1,14 +1,18 @@
 import { generateText } from 'ai';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Autocomplete } from '../Autocomplete';
 import { ConfigError, createModel, endpointOf, originPattern } from '@/src/lib/agent/models';
 import { notifyChanged } from '@/src/lib/channel';
 import { friendlyError } from '@/src/lib/review';
 import { DEFAULT_MODELS, type Provider, type Settings } from '@/src/lib/settings';
 import { repos } from '@/src/lib/services';
+import { hostOf } from '@/src/lib/format';
+import { buildVocabulary } from '@/src/lib/suggest';
+import { useOpenTabs } from '@/src/lib/useTabs';
 import { useLive, useSettings } from '@/src/lib/useAsync';
 
 const MODES: { id: Settings['mode']; name: string; tag: string; desc: string }[] = [
-  { id: 'builtin', name: 'Built in', tag: 'Free', desc: 'Rules only. No key, no account, nothing leaves your browser.' },
+  { id: 'builtin', name: 'Built in', tag: 'Free', desc: 'No key, no account. Everything stays in your browser.' },
   { id: 'key', name: 'Your own key', tag: 'Smartest', desc: 'Any provider you already use.' },
   { id: 'local', name: 'Local model', tag: 'Most private', desc: 'Ollama or LM Studio on your computer.' },
 ];
@@ -24,6 +28,9 @@ const PROVIDERS: { id: Provider; label: string }[] = [
 export function SettingsView() {
   const { settings: s, update } = useSettings();
   const memory = useLive(() => repos.memory.list());
+  const openTabs = useOpenTabs();
+  const closedTabs = useLive(() => repos.tabs.listClosed());
+  const siteVocabulary = useMemo(() => buildVocabulary([...(openTabs ?? []), ...(closedTabs ?? [])].map((t) => hostOf(t.url))), [openTabs, closedTabs]);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string } | null>(null);
   const [newSite, setNewSite] = useState('');
 
@@ -40,7 +47,7 @@ export function SettingsView() {
       await generateText({ model: createModel(s), prompt: 'Reply with the single word OK.', maxOutputTokens: 8 });
       setStatus({ kind: 'ok', text: 'Connected. You can run a review now.' });
     } catch (err) {
-      setStatus({ kind: 'error', text: err instanceof ConfigError ? err.message : friendlyError(err).replace(' Showing rule-based suggestions only.', '') });
+      setStatus({ kind: 'error', text: err instanceof ConfigError ? err.message : friendlyError(err).replace(' Showing the built-in suggestions only.', '') });
     }
   };
 
@@ -136,7 +143,7 @@ export function SettingsView() {
         ))}
       </ul>
       <form className="inline" onSubmit={(e) => { e.preventDefault(); void addSite(); }}>
-        <input type="text" value={newSite} onChange={(e) => setNewSite(e.target.value)} placeholder="crm.mycompany.com" aria-label="Add a site or word" />
+        <Autocomplete label="Add a site or word" value={newSite} onChange={setNewSite} vocabulary={siteVocabulary} placeholder="crm.mycompany.com" />
         <button className="btn" type="submit">Add</button>
       </form>
 

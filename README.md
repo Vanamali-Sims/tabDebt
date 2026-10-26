@@ -33,7 +33,7 @@ tab events -> Tracker -> IndexedDB
 - Unsure never means closed: a low-confidence "done" becomes "save to read".
 - Page text reaches the model only inside a marked untrusted block, is cleaned, and is checked for text that tries to give orders. A page that does is left alone, whatever the model says.
 - Pinned, audible, active, excluded and remembered tabs are never closed, enforced in the rules, the finalizer and the executor.
-- Hard limits: step budget, page-read cap, tabs per run. If the AI call fails, you still get a rule-based plan.
+- Hard limits: step budget, page-read cap, tabs per run. If the AI call fails, you still get the built-in plan.
 
 ## Develop
 
