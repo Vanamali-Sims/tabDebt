@@ -72,8 +72,11 @@ export async function buildPlan(opts: BuildPlanOptions): Promise<PlanResult> {
       });
       verdicts = verdicts.concat(out.verdicts);
       usage = out.usage;
+      if (opts.abortSignal?.aborted) throw out.error ?? new Error('Cancelled');
       if (out.error) warning = friendlyError(out.error).replace('Showing rule-based suggestions only.', 'Some tabs use rule-based suggestions.');
     } catch (err) {
+      // Cancelled on purpose: stop, don't present a rule-only plan as if the AI had failed.
+      if (opts.abortSignal?.aborted) throw err;
       warning = friendlyError(err);
       forFallback.push(...forAgent);
     }
