@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Autocomplete } from '../Autocomplete';
 import { notifyChanged } from '@/src/lib/channel';
 import { hostOf, timeAgo } from '@/src/lib/format';
 import { searchClosed } from '@/src/lib/search';
+import { buildVocabulary } from '@/src/lib/suggest';
 import { repos } from '@/src/lib/services';
 import { useLive } from '@/src/lib/useAsync';
 import type { SavedItem } from '@/src/lib/types';
@@ -22,6 +24,10 @@ export function SavedView() {
     notifyChanged();
   };
 
+  const vocabulary = useMemo(
+    () => buildVocabulary([...(items ?? []).flatMap((i) => [i.title, i.summary ?? '', i.project ?? '']), ...(closed ?? []).flatMap((t) => [t.title, hostOf(t.url)])]),
+    [items, closed],
+  );
   const q = query.trim();
   const hits = q && items && closed ? searchClosed(q, closed, items) : [];
   const byKind = (k: SavedItem['kind']) => (items ?? []).filter((i) => i.kind === k).sort((a, b) => b.createdAt - a.createdAt);
@@ -33,10 +39,9 @@ export function SavedView() {
 
   return (
     <section className="panel-body">
-      <label className="search">
-        <span className="sr-only">Search closed tabs and saved items</span>
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="That caching article from last week" />
-      </label>
+      <div className="search">
+        <Autocomplete label="Search closed tabs and saved items" value={query} onChange={setQuery} vocabulary={vocabulary} placeholder="That caching article from last week" />
+      </div>
 
       {q ? (
         hits.length === 0 ? (

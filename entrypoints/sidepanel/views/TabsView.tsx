@@ -1,3 +1,4 @@
+import { Leaves } from '../Leaves';
 import { notifyChanged } from '@/src/lib/channel';
 import { formatDuration, hostOf, timeAgo } from '@/src/lib/format';
 import { repos, undo } from '@/src/lib/services';
@@ -39,7 +40,10 @@ export function TabsView({ onReview }: { onReview: () => void }) {
     <section className="panel-body">
       <div className="hero">
         <p className="count">{tabs === null ? 'Loading…' : `${tabs.length} open ${tabs.length === 1 ? 'tab' : 'tabs'}`}</p>
-        <button className="btn btn-primary" onClick={onReview} disabled={!tabs || tabs.length === 0}>Review my tabs</button>
+        <span className="leafy">
+          <Leaves />
+          <button className="btn btn-primary" onClick={onReview} disabled={!tabs || tabs.length === 0}>Review my tabs</button>
+        </span>
       </div>
 
       {recentRun && (

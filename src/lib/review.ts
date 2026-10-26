@@ -73,7 +73,7 @@ export async function buildPlan(opts: BuildPlanOptions): Promise<PlanResult> {
       verdicts = verdicts.concat(out.verdicts);
       usage = out.usage;
       if (opts.abortSignal?.aborted) throw out.error ?? new Error('Cancelled');
-      if (out.error) warning = friendlyError(out.error).replace('Showing rule-based suggestions only.', 'Some tabs use rule-based suggestions.');
+      if (out.error) warning = friendlyError(out.error).replace('Showing the built-in suggestions only.', 'Some tabs use the built-in suggestions.');
     } catch (err) {
       // Cancelled on purpose: stop, don't present a rule-only plan as if the AI had failed.
       if (opts.abortSignal?.aborted) throw err;
@@ -99,8 +99,8 @@ export async function buildPlan(opts: BuildPlanOptions): Promise<PlanResult> {
 
 export function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (/401|403|unauthor|invalid.*key|incorrect api key/i.test(msg)) return "Your AI provider didn't accept the key. Check it in settings. Showing rule-based suggestions only.";
-  if (/429|rate|quota|insufficient/i.test(msg)) return 'Your AI provider says the limit or balance is used up. Showing rule-based suggestions only.';
-  if (/failed to fetch|network|ECONN|fetch failed/i.test(msg)) return "Couldn't reach your AI provider. Showing rule-based suggestions only.";
-  return `The AI step failed (${msg.slice(0, 120)}). Showing rule-based suggestions only.`;
+  if (/401|403|unauthor|invalid.*key|incorrect api key/i.test(msg)) return "Your AI provider didn't accept the key. Check it in settings. Showing the built-in suggestions only.";
+  if (/429|rate|quota|insufficient/i.test(msg)) return 'Your AI provider says the limit or balance is used up. Showing the built-in suggestions only.';
+  if (/failed to fetch|network|ECONN|fetch failed/i.test(msg)) return "Couldn't reach your AI provider. Showing the built-in suggestions only.";
+  return `The AI step failed (${msg.slice(0, 120)}). Showing the built-in suggestions only.`;
 }

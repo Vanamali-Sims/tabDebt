@@ -1,24 +1,30 @@
 :root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --border: #e3e6eb;
-  --text: #15171c;
-  --text-2: #4a505c;
-  --text-3: #6b7280;
-  --accent: #3f4fd9;
+  --bg: #f7f3ea;
+  --surface: #fffdf8;
+  --border: #e6dfcf;
+  --text: #2a261f;
+  --text-2: #5c5547;
+  --text-3: #7a7364;
+  --accent: #3f7a4f;
   --accent-ink: #ffffff;
-  --accent-bg: #eef0fd;
-  --warn: #8a4b00;
-  --warn-bg: #fdf1dc;
-  --ok: #1f6b2e;
+  --accent-bg: #e4efdf;
+  --warn: #8a5a14;
+  --warn-bg: #fbefd5;
+  --ok: #2f6b3c;
   --bad: #b42318;
-  --radius: 10px;
+  --leaf: #6aa56f;
+  --leaf-vein: #e4efdf;
+  --shadow: 0 1px 2px rgba(60, 50, 20, 0.06), 0 2px 8px rgba(60, 50, 20, 0.04);
+  --radius: 12px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14161a; --surface: #1c1f25; --border: #2b2f37; --text: #eceef2; --text-2: #b4bac6; --text-3: #9099a8;
-    --accent: #8f9bff; --accent-ink: #10132e; --accent-bg: #252a4a; --warn: #f0b25c; --warn-bg: #3a2c12; --ok: #6fd08a; --bad: #ff8a80;
+    --bg: #171a16; --surface: #1f231e; --border: #2f352c; --text: #ecebe4; --text-2: #bcbfb2; --text-3: #98a08f;
+    --accent: #8fcf9a; --accent-ink: #10230f; --accent-bg: #26372a; --warn: #f0b25c; --warn-bg: #3a2c12; --ok: #8fd49a; --bad: #ff8a80;
+    --leaf: #5f9b66; --leaf-vein: #1f231e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 }
 * { box-sizing: border-box; }
@@ -96,7 +102,7 @@ details.group summary { cursor: pointer; display: flex; align-items: center; gap
 .why dt { color: var(--text-3); }
 .review-foot { display: flex; flex-direction: column; gap: 8px; position: sticky; bottom: 0; background: var(--bg); padding-top: 8px; }
 
-.search input, .form input, .form select, .inline input { width: 100%; min-height: 40px; padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+.form input, .form select { width: 100%; min-height: 40px; padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
 .form { display: flex; flex-direction: column; gap: 10px; }
 .form label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; font-size: 13px; }
 .note { font-size: 12px; color: var(--ok); }
@@ -114,3 +120,45 @@ details.group summary { cursor: pointer; display: flex; align-items: center; gap
 .chip-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; }
 .chip-tag button { border: 0; background: none; padding: 0 6px; font-size: 16px; line-height: 1; color: var(--text-3); }
 .inline { display: flex; gap: 8px; }
+
+/* Warmth and motion. Everything here is polish; layout above is unchanged. */
+body { background: linear-gradient(180deg, var(--bg), var(--bg)); }
+.header { display: flex; align-items: center; gap: 8px; }
+.header h1 { letter-spacing: -0.01em; }
+.header h1::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 0 100% 0 100%; background: var(--leaf); transform: translateY(-1px) rotate(-8deg); }
+
+.btn, .row, .plan-row, .group, .mode, .nav-item, .link, .chip-tag { transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease), box-shadow 0.18s var(--ease), transform 0.18s var(--ease), filter 0.18s var(--ease); }
+.row, .group, .mode { box-shadow: var(--shadow); }
+.row:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn-primary { box-shadow: 0 1px 2px rgba(31, 80, 45, 0.25); }
+.mode:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.banner { border: 1px solid color-mix(in srgb, var(--warn) 22%, transparent); }
+.nav { box-shadow: 0 -1px 0 var(--border); }
+.nav-item:hover { color: var(--text); }
+
+.panel-body, .review, .center, .empty { animation: rise 0.28s var(--ease) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* The review button, with leaves tucked behind two corners. */
+.leafy { position: relative; display: inline-flex; margin: 6px 8px 4px 8px; }
+.leafy .btn { position: relative; z-index: 1; }
+.leaf { position: absolute; z-index: 0; color: var(--leaf); transform-origin: center; transition: transform 0.35s var(--ease); pointer-events: none; }
+.leaf-a { width: 27px; height: 27px; top: -11px; left: -10px; transform: rotate(-12deg); }
+.leaf-b { width: 21px; height: 21px; bottom: -8px; right: -8px; transform: rotate(8deg); }
+.leafy:hover .leaf-a, .leafy:focus-within .leaf-a { transform: rotate(-24deg) translate(-1px, -1px); }
+.leafy:hover .leaf-b, .leafy:focus-within .leaf-b { transform: rotate(20deg) translate(1px, 1px); }
+
+/* Autocomplete: the grey ghost sits under a transparent input inside one bordered box. */
+.ac { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; min-height: 40px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease); }
+.ac:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.ac-ghost { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 12px; white-space: pre; overflow: hidden; pointer-events: none; }
+.ac-typed { color: transparent; }
+.ac-rest { color: var(--text-3); opacity: 0.75; }
+.search .ac-input, .inline .ac-input { position: relative; width: 100%; min-height: 38px; padding: 0 12px; border: 0; background: transparent; outline: none; }
+.ac-input:focus-visible { outline: none; }
+.ac-key { position: relative; margin-right: 8px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 5px; font: 600 11px/1.5 inherit; color: var(--text-3); background: var(--bg); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
