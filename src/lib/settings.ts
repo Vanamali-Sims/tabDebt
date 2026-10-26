@@ -17,6 +17,8 @@ export interface Settings {
   maxTabsPerRun: number;
   /** Most model steps for one review. */
   maxSteps: number;
+  /** paper: warm light. night: warm dark. system: follow the computer. */
+  theme: 'paper' | 'night' | 'system';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   exclusions: DEFAULT_EXCLUSIONS,
   maxTabsPerRun: 40,
   maxSteps: 12,
+  theme: 'paper',
 };
 
 /** A small, inexpensive default model for each provider. Users can type any model name. */
