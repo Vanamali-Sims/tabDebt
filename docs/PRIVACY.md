@@ -9,6 +9,8 @@ Everything is stored on your computer, inside the extension:
 - **Tab history**: title, address, time spent, visits, which tab opened which, and when you closed it. Closed tabs and review history are deleted after 30 days.
 - **Saved items**: tasks, reading list and project tabs from your reviews. Kept until you remove them.
 - **Settings and key**: your chosen AI mode, model, and API key if you add one.
+- **Snoozed tabs**: the address and title of tabs you snooze, until they reopen.
+- **Daily tab counts**: one number per day for the last two weeks, used for "down from yesterday".
 - **Sites you kept**: addresses you unticked in a review, so they stay open next time. You can remove them in Settings.
 
 ## What leaves your computer
