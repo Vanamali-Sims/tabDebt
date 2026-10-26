@@ -28,7 +28,10 @@ export function ReviewView({ onClose }: { onClose: () => void }) {
     (async () => {
       try {
         const plan = await generatePlan(ctl.signal);
+        // A cancelled run (panel closed, or React re-mounting in dev) must never show its result.
+        if (ctl.signal.aborted) return;
         const open = await repos.tabs.listOpen();
+        if (ctl.signal.aborted) return;
         setRecords(new Map(open.map((r) => [r.id, r])));
         setEntries(plan.entries);
         setState({ step: 'plan', plan });
