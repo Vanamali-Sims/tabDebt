@@ -57,7 +57,7 @@ function startFakeProvider() {
 
   const panel = await ctx.newPage();
   await panel.goto(`chrome-extension://${extId}/sidepanel.html`);
-  await panel.waitForSelector('text=Review my tabs');
+  await panel.waitForSelector('text=Review tabs');
 
   // Point the extension at the fake provider through the Settings screen, as a user would.
   await panel.click('nav >> text=Settings');
@@ -67,7 +67,7 @@ function startFakeProvider() {
   await panel.waitForTimeout(300);
 
   await panel.click('nav >> text=Tabs');
-  await panel.click('text=Review my tabs');
+  await panel.click('text=Review tabs');
   await panel.waitForSelector('text=End of day', { timeout: 15000 });
 
   assert(seen.length === 1 && seen[0].url === '/v1/chat/completions', 'one request reached the provider');

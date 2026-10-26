@@ -15,7 +15,7 @@ export const tabsApi: TabsApi = {
   create: async (url) => void (await chrome.tabs.create({ url, active: false })),
 };
 
-async function activeRecordId(): Promise<string | undefined> {
+export async function activeRecordId(): Promise<string | undefined> {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (tab?.id === undefined) return undefined;
   return (await repos.tabs.getOpenByTabId(tab.id))?.id;

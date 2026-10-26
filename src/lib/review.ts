@@ -87,7 +87,7 @@ export async function buildPlan(opts: BuildPlanOptions): Promise<PlanResult> {
     verdicts = verdicts.concat(finalizeVerdicts(refs, new Map(), new Map(), new Set(), now));
   }
 
-  const counts: PlanResult['counts'] = { rules: 0, memory: 0, agent: 0, fallback: 0 };
+  const counts: PlanResult['counts'] = { rules: 0, memory: 0, agent: 0, fallback: 0, user: 0 };
   for (const v of verdicts) counts[v.source]++;
 
   const entries: PlanEntry[] = verdicts.map((v) => ({

@@ -3,6 +3,8 @@ import { notifyChanged } from '@/src/lib/channel';
 import { REMINDER_HOUR, REMINDER_MIN_TABS, REMINDER_MINUTE, badgeText, msUntilNext } from '@/src/lib/badge';
 import { idbRepos } from '@/src/lib/db';
 import { prune } from '@/src/lib/retention';
+import { recordSnapshot } from '@/src/lib/snapshots';
+import { isSnoozeAlarm, restoreSnoozed, snoozeIdOf, wakeSnoozed } from '@/src/lib/snooze';
 import { Tracker } from '@/src/lib/tracker';
 import type { TabInfo } from '@/src/lib/types';
 
@@ -28,12 +30,13 @@ export default defineBackground(() => {
   const store = new IdbTabStore();
   const tracker = new Tracker(store, new ChromeSessionStore());
 
-  // The badge shows the open tab count. After the end-of-day reminder it turns amber until a review is applied.
+  // The badge shows the open tab count. After the end-of-day reminder it turns rust until a review is applied.
   const updateBadge = async () => {
     const count = (await store.listOpen()).length;
     const { reminding } = await chrome.storage.session.get('reminding');
+    await recordSnapshot(count);
     await chrome.action.setBadgeText({ text: badgeText(count) });
-    await chrome.action.setBadgeBackgroundColor({ color: reminding ? '#b45309' : '#3f4fd9' });
+    await chrome.action.setBadgeBackgroundColor({ color: reminding ? '#c4705a' : '#7fb08a' });
     await chrome.action.setTitle({ title: reminding ? `Time to review: ${count} tabs open` : 'Open Tab Debt' });
   };
 
@@ -56,6 +59,7 @@ export default defineBackground(() => {
   const sync = async () => {
     const tabs = (await chrome.tabs.query({})).map(toInfo).filter((t): t is TabInfo => !!t);
     forgetOld();
+    await restoreSnoozed();
     await tracker.reconcile(tabs);
     const current = await activeTabInFocusedWindow();
     if (current) await tracker.resume(current);
@@ -66,6 +70,10 @@ export default defineBackground(() => {
   const scheduleReminder = () =>
     chrome.alarms.create('end-of-day', { when: Date.now() + msUntilNext(REMINDER_HOUR, REMINDER_MINUTE), periodInMinutes: 24 * 60 });
   chrome.alarms.onAlarm.addListener((alarm) => {
+    if (isSnoozeAlarm(alarm.name)) {
+      run('wake snoozed tab', () => wakeSnoozed(snoozeIdOf(alarm.name)));
+      return;
+    }
     if (alarm.name !== 'end-of-day') return;
     forgetOld(); // once a day is plenty
     run('end-of-day reminder', async () => {

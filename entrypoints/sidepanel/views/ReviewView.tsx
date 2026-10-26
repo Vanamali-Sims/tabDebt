@@ -182,7 +182,7 @@ function PlanRow({ entry, rec, onToggle }: { entry: PlanEntry; rec?: TabRecord; 
           <dt>Page</dt>
           <dd>{rec ? hostOf(rec.url) : 'unknown'}</dd>
           <dt>Decided by</dt>
-          <dd>{{ rules: 'A built-in rule', memory: 'Your earlier choice', agent: 'The agent', fallback: 'A cautious default' }[entry.source]}</dd>
+          <dd>{{ rules: 'A built-in rule', memory: 'Your earlier choice', agent: 'The agent', fallback: 'A cautious default', user: 'You' }[entry.source]}</dd>
           {entry.looked && entry.looked.length > 0 && (<><dt>Looked at</dt><dd>{entry.looked.join(', ')}</dd></>)}
           {entry.summary && (<><dt>Summary</dt><dd>{entry.summary}</dd></>)}
           <dt>Confidence</dt>

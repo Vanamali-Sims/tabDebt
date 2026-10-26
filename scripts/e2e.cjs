@@ -28,11 +28,11 @@ const assert = (cond, msg) => { if (!cond) throw new Error('ASSERT: ' + msg); co
 
   const panel = await ctx.newPage();
   await panel.goto(`chrome-extension://${extId}/sidepanel.html`);
-  await panel.waitForSelector('text=Review my tabs');
+  await panel.waitForSelector('text=Review tabs');
   const webTabs = () => ctx.pages().filter((p) => p.url().startsWith(base)).length;
   assert(webTabs() === 5, 'five web tabs are open');
 
-  await panel.click('text=Review my tabs');
+  await panel.click('text=Review tabs');
   await panel.waitForSelector('text=End of day');
   const doneRows = await panel.locator('.group-done .plan-row').count();
   assert(doneRows === 2, `plan proposes closing 2 tabs as done (got ${doneRows})`);
