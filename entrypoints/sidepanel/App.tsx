@@ -16,7 +16,7 @@ export function App() {
   const [view, setView] = useState<View>('tabs');
   // Settings changes come from another component's own copy, so follow storage rather than props.
   useEffect(() => {
-    const apply = (theme?: string) => { document.documentElement.dataset.theme = theme ?? 'paper'; };
+    const apply = (theme?: string) => { document.documentElement.dataset.theme = theme === 'day' || theme === 'system' ? theme : 'night'; };
     void loadSettings().then((s) => apply(s.theme));
     const onStorage = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
       if (area === 'local' && changes.settings) apply((changes.settings.newValue as { theme?: string } | undefined)?.theme);

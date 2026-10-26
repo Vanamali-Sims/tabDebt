@@ -17,8 +17,8 @@ export interface Settings {
   maxTabsPerRun: number;
   /** Most model steps for one review. */
   maxSteps: number;
-  /** paper: warm light. night: warm dark. system: follow the computer. */
-  theme: 'paper' | 'night' | 'system';
+  /** night: warm dark. day: soft light. system: follow the computer. */
+  theme: 'night' | 'day' | 'system';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -31,7 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   exclusions: DEFAULT_EXCLUSIONS,
   maxTabsPerRun: 40,
   maxSteps: 12,
-  theme: 'paper',
+  theme: 'night',
 };
 
 /** A small, inexpensive default model for each provider. Users can type any model name. */
@@ -45,7 +45,10 @@ export const DEFAULT_MODELS: Record<Provider, string> = {
 
 export async function loadSettings(): Promise<Settings> {
   const { settings } = await chrome.storage.local.get('settings');
-  return { ...DEFAULT_SETTINGS, ...(settings as Partial<Settings> | undefined) };
+  const merged = { ...DEFAULT_SETTINGS, ...(settings as Partial<Settings> | undefined) };
+  // 'paper' was an earlier name for the light theme; fall back to the default for anything unknown.
+  if (!['night', 'day', 'system'].includes(merged.theme)) merged.theme = DEFAULT_SETTINGS.theme;
+  return merged;
 }
 
 export async function saveSettings(patch: Partial<Settings>): Promise<Settings> {
