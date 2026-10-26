@@ -122,6 +122,13 @@ export function SettingsView() {
         </div>
       )}
 
+      <h2>Appearance</h2>
+      <div className="seg" role="radiogroup" aria-label="Appearance">
+        {([['paper', 'Paper'], ['night', 'Night'], ['system', 'Match my computer']] as const).map(([id, label]) => (
+          <button key={id} role="radio" aria-checked={s.theme === id} className={s.theme === id ? 'seg-item selected' : 'seg-item'} onClick={() => update({ theme: id })}>{label}</button>
+        ))}
+      </div>
+
       <h2>What it can see</h2>
       <label className="switch">
         <input type="checkbox" checked disabled />
