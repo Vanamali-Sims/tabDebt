@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Autocomplete } from '../Autocomplete';
-import { BookmarkIcon, CheckIcon, ClockIcon, CloseIcon, LeafIcon } from '../Icons';
+import { BookmarkIcon, CheckIcon, ChevronIcon, ClockIcon, CloseIcon, LeafIcon } from '../Icons';
 import { Tile } from '../Tile';
+import type { ToastSpec } from '../Toast';
+import type { SavedSegment } from './SavedView';
 import { notifyChanged } from '@/src/lib/channel';
 import { GROUP_MIN, SNOOZE_MS, summarize, tagOf, type Bucket } from '@/src/lib/debt';
 import { formatDuration, hostOf, timeAgo } from '@/src/lib/format';
@@ -20,8 +22,6 @@ const SECTIONS: { bucket: Bucket; label: string; hint?: string; closeAll: boolea
   { bucket: 'forgotten', label: 'Forgotten', closeAll: true },
 ];
 
-interface Notice { text: string; undo?: () => Promise<void> }
-
 async function goTo(tab: TabRecord) {
   if (tab.tabId == null) return;
   const t = await chrome.tabs.get(tab.tabId).catch(() => undefined);
@@ -34,11 +34,14 @@ async function goTo(tab: TabRecord) {
 const toPlan = (tabs: TabRecord[]): PlanEntry[] =>
   tabs.map((t) => ({ recordId: t.id, action: 'done', reason: 'You closed it', confidence: 1, source: 'user', approved: true }));
 
-function TabRow({ tab, current, tagged, indent, onClose, onSave, onSnooze, saved }: {
-  tab: TabRecord; current?: boolean; tagged: boolean; indent?: boolean; saved?: boolean;
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+function TabRow({ tab, current, bucket, indent, onClose, onSave, onSnooze, saved }: {
+  tab: TabRecord; current?: boolean; bucket: Bucket; indent?: boolean; saved?: boolean;
   onClose: (t: TabRecord) => void; onSave: (t: TabRecord) => void; onSnooze: (t: TabRecord) => void;
 }) {
-  const tag = tagged ? tagOf(tab) : null;
+  const tag = bucket !== 'active' ? tagOf(tab) : null;
+  const when = current ? 'this tab' : timeAgo(tab.lastActiveAt);
   return (
     <li className={`trow${current ? ' current' : ''}${indent ? ' indent' : ''}`}>
       <button className="trow-main" onClick={() => void goTo(tab)} title={tab.title}>
@@ -46,7 +49,7 @@ function TabRow({ tab, current, tagged, indent, onClose, onSave, onSnooze, saved
         <span className="trow-text">
           <span className="trow-title">{tab.title || hostOf(tab.url)}</span>
           <span className="trow-meta">
-            {hostOf(tab.url)} · {current ? 'this tab' : timeAgo(tab.lastActiveAt)}
+            {hostOf(tab.url)} · {bucket === 'forgotten' && !current ? <span className="stale">{when}</span> : when}
             {tag && <> · <span className="tag-note">{tag}</span></>}
           </span>
         </span>
@@ -57,20 +60,24 @@ function TabRow({ tab, current, tagged, indent, onClose, onSave, onSnooze, saved
             {saved ? <CheckIcon /> : <BookmarkIcon />}
           </button>
           <button className="act" aria-label={`Snooze ${tab.title} for 3 hours`} title="Snooze 3 hours" onClick={() => onSnooze(tab)}><ClockIcon /></button>
-          <button className="act" aria-label={`Close ${tab.title}`} title="Close" onClick={() => onClose(tab)}><CloseIcon /></button>
+          <button className="act danger" aria-label={`Close ${tab.title}`} title="Close" onClick={() => onClose(tab)}><CloseIcon /></button>
         </span>
       )}
     </li>
   );
 }
 
-export function TabsView({ onReview, searching }: { onReview: () => void; searching: boolean }) {
+export function TabsView({ onReview, searching, onOpenSaved, toast }: {
+  onReview: () => void;
+  searching: boolean;
+  onOpenSaved: (seg: SavedSegment) => void;
+  toast: (t: ToastSpec) => void;
+}) {
   const tabs = useOpenTabs();
   const currentId = useLive(() => activeRecordId());
   const snaps = useLive(() => loadSnapshots());
-  const lastRun = useLive(() => repos.runs.latest());
+  const items = useLive(() => repos.items.list());
   const [filter, setFilter] = useState('');
-  const [notice, setNotice] = useState<Notice | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<Set<string>>(new Set());
 
@@ -83,13 +90,15 @@ export function TabsView({ onReview, searching }: { onReview: () => void; search
   const vocabulary = useMemo(() => buildVocabulary((tabs ?? []).flatMap((t) => [t.title, hostOf(t.url)])), [tabs]);
   const s = useMemo(() => summarize(visible, currentId ?? undefined, now), [visible, currentId, now]);
   const all = useMemo(() => summarize(tabs ?? [], currentId ?? undefined, now), [tabs, currentId, now]);
-  const delta = tabs && snaps ? changeSinceYesterday(snaps, tabs.length) : null;
-  const recentRun = lastRun && !lastRun.undoneAt && now - lastRun.at < 24 * 3_600_000 ? lastRun : null;
+  // Count every open tab, the one you're on included: "0 open tabs" next to a listed tab reads as a bug.
+  const total = tabs?.length ?? 0;
+  const delta = tabs && snaps ? changeSinceYesterday(snaps, total) : null;
 
   const close = async (list: TabRecord[]) => {
     if (list.length === 0) return;
-    const { skipped } = await applyApprovedPlan(toPlan(list));
-    setNotice(skipped.length ? { text: `${skipped.length} left open (pinned, playing, or already closed).` } : null);
+    const { run, skipped } = await applyApprovedPlan(toPlan(list));
+    if (skipped.length) toast({ text: `${skipped.length} left open (pinned or playing)` });
+    else if (run.applied.length) toast({ text: `Closed ${run.applied.length}`, action: { label: 'Undo', run: () => void undo(run.id) } });
   };
   const save = async (t: TabRecord) => {
     const item: SavedItem = { id: crypto.randomUUID(), kind: 'read', title: t.title || hostOf(t.url), url: t.url, done: false, createdAt: Date.now(), runId: 'manual' };
@@ -102,17 +111,16 @@ export function TabsView({ onReview, searching }: { onReview: () => void; search
     const entry = await addSnooze({ url: t.url, title: t.title }, SNOOZE_MS);
     await chrome.tabs.remove(t.tabId).catch(() => {});
     const when = new Date(entry.wakeAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    setNotice({
-      text: `Snoozed “${t.title.slice(0, 40)}” until ${when}.`,
-      undo: async () => { await cancelSnooze(entry.id); await chrome.tabs.create({ url: t.url, active: false }); setNotice(null); },
+    toast({
+      text: `Back at ${when}`,
+      action: { label: 'Undo', run: async () => { await cancelSnooze(entry.id); await chrome.tabs.create({ url: t.url, active: false }); } },
     });
     notifyChanged();
   };
 
   const renderList = (list: TabRecord[], bucket: Bucket) => {
-    const tagged = bucket !== 'active';
     const row = (t: TabRecord, indent?: boolean) => (
-      <TabRow key={t.id} tab={t} tagged={tagged} indent={indent} saved={savedIds.has(t.id)} onClose={(x) => void close([x])} onSave={(x) => void save(x)} onSnooze={(x) => void snooze(x)} />
+      <TabRow key={t.id} tab={t} bucket={bucket} indent={indent} saved={savedIds.has(t.id)} onClose={(x) => void close([x])} onSave={(x) => void save(x)} onSnooze={(x) => void snooze(x)} />
     );
     return groupByHost(list).flatMap((g) => {
       if (g.tabs.length < GROUP_MIN) return g.tabs.map((t) => row(t));
@@ -135,32 +143,29 @@ export function TabsView({ onReview, searching }: { onReview: () => void; search
   };
 
   const counts = { active: all.active.length, idle: all.idle.length, forgotten: all.forgotten.length };
-  const caughtUp = tabs !== null && tabs.length > 0 && counts.idle === 0 && counts.forgotten === 0;
+  const hasDebt = all.overAnHour > 0;
+  const caughtUp = tabs !== null && tabs.length > 0 && !hasDebt;
+  const openTasks = (items ?? []).filter((i) => i.kind === 'task' && !i.done).length;
+  const toRead = (items ?? []).filter((i) => i.kind !== 'task').length;
 
   return (
-    <section className="debt">
+    <section className="view">
       <div className="summary">
         <div>
           <div className="big-row">
-            <span className="big">{tabs === null ? '–' : all.debt}</span>
+            <span className="big">{tabs === null ? '–' : total}</span>
             {delta !== null && delta !== 0 && <span className={delta < 0 ? 'delta down' : 'delta up'}>{delta < 0 ? '↓' : '↑'} {Math.abs(delta)} from yesterday</span>}
           </div>
-          <p className="sub">
-            open {all.debt === 1 ? 'tab' : 'tabs'}
-            {all.overAnHour > 0 && <> · <span className="idle-text">{all.overAnHour} idle over an hour</span></>}
-          </p>
+          <p className="sub">open {total === 1 ? 'tab' : 'tabs'}</p>
         </div>
-        <button className="pill" onClick={onReview} disabled={!tabs || tabs.length === 0}>Review tabs</button>
+        <button className={hasDebt ? 'pill' : 'pill pill-quiet'} onClick={onReview} disabled={!tabs || tabs.length === 0}>Review tabs</button>
       </div>
 
-      {all.debt > 0 && (
-        <div className="health">
-          <div className="bar" role="img" aria-label={`${counts.active} active, ${counts.idle} idle, ${counts.forgotten} forgotten`}>
-            {counts.active > 0 && <span className="seg seg-active" style={{ flexGrow: counts.active }} />}
-            {counts.idle > 0 && <span className="seg seg-idle" style={{ flexGrow: counts.idle }} />}
-            {counts.forgotten > 0 && <span className="seg seg-forgotten" style={{ flexGrow: counts.forgotten }} />}
-          </div>
-          <div className="bar-labels"><span>{counts.active} active</span><span>{counts.idle} idle</span><span>{counts.forgotten} forgotten</span></div>
+      {all.debt > 0 && hasDebt && (
+        <div className="bar" role="img" aria-label={`${counts.active} active, ${counts.idle} idle, ${counts.forgotten} forgotten`}>
+          {counts.active > 0 && <span className="seg seg-active" style={{ flexGrow: counts.active }} />}
+          {counts.idle > 0 && <span className="seg seg-idle" style={{ flexGrow: counts.idle }} />}
+          {counts.forgotten > 0 && <span className="seg seg-forgotten" style={{ flexGrow: counts.forgotten }} />}
         </div>
       )}
 
@@ -170,21 +175,10 @@ export function TabsView({ onReview, searching }: { onReview: () => void; search
         </div>
       )}
 
-      {(notice || recentRun) && (
-        <p className="banner" role="status">
-          {notice ? notice.text : `Closed ${recentRun!.applied.length} ${recentRun!.applied.length === 1 ? 'tab' : 'tabs'}, ${timeAgo(recentRun!.at)}.`}{' '}
-          {notice?.undo ? (
-            <button className="link" onClick={() => void notice.undo!()}>Undo</button>
-          ) : recentRun ? (
-            <button className="link" onClick={async () => { await undo(recentRun.id); setNotice(null); }}>Undo</button>
-          ) : null}
-        </p>
-      )}
-
       {tabs && tabs.length === 0 ? (
         <div className="empty">
           <h2>Nothing open yet</h2>
-          <p>Browse as usual. Tabs show up here with how long it's been since you used each one.</p>
+          <p>Browse as usual. Tabs show up here with how long since you used each one.</p>
         </div>
       ) : (
         SECTIONS.map(({ bucket, label, hint, closeAll }) => {
@@ -195,11 +189,12 @@ export function TabsView({ onReview, searching }: { onReview: () => void; search
             <div key={bucket} className="section">
               <div className="section-head">
                 <span className={`dot dot-${bucket}`} aria-hidden="true" />
-                <h2 className="section-label">{label}{hint && <span className="section-hint"> {hint}</span>}</h2>
-                {closeAll && <button className="link-quiet" onClick={() => void close(list)}>close all</button>}
+                <h2 className="section-label">{label}{bucket !== 'active' && ` · ${list.length}`}</h2>
+                {hint && <span className="section-hint">{hint}</span>}
+                {closeAll && <button className="link-quiet" onClick={() => void close(list)}>Close all</button>}
               </div>
               <ul className="tlist">
-                {showCurrent && <TabRow tab={s.current!} current tagged={false} onClose={() => {}} onSave={() => {}} onSnooze={() => {}} />}
+                {showCurrent && <TabRow tab={s.current!} current bucket="active" onClose={() => {}} onSave={() => {}} onSnooze={() => {}} />}
                 {renderList(list, bucket)}
               </ul>
             </div>
@@ -208,10 +203,30 @@ export function TabsView({ onReview, searching }: { onReview: () => void; search
       )}
 
       {caughtUp && (
-        <div className="caught-up">
-          <LeafIcon size={22} />
-          <p>All caught up</p>
-        </div>
+        <>
+          <div className="caught-up">
+            <LeafIcon size={30} />
+            <p>All caught up</p>
+          </div>
+          {(openTasks > 0 || toRead > 0) && (
+            <div className="card">
+              {openTasks > 0 && (
+                <button className="link-row" onClick={() => onOpenSaved('tasks')}>
+                  <span className="dot dot-amber" aria-hidden="true" />
+                  <span className="grow">{plural(openTasks, 'task')} to do</span>
+                  <ChevronIcon size={16} />
+                </button>
+              )}
+              {toRead > 0 && (
+                <button className="link-row" onClick={() => onOpenSaved('read')}>
+                  <span className="dot dot-blue" aria-hidden="true" />
+                  <span className="grow">{toRead} saved to read</span>
+                  <ChevronIcon size={16} />
+                </button>
+              )}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

@@ -1,19 +1,30 @@
 import { useMemo, useState } from 'react';
 import { Autocomplete } from '../Autocomplete';
+import { CloseIcon, ReopenIcon } from '../Icons';
+import { Tile } from '../Tile';
+import type { ToastSpec } from '../Toast';
 import { notifyChanged } from '@/src/lib/channel';
 import { hostOf, timeAgo } from '@/src/lib/format';
 import { searchClosed } from '@/src/lib/search';
 import { buildVocabulary } from '@/src/lib/suggest';
-import { repos } from '@/src/lib/services';
+import { repos, undo } from '@/src/lib/services';
 import { useLive } from '@/src/lib/useAsync';
 import type { SavedItem } from '@/src/lib/types';
 
-const open = (url: string) => void chrome.tabs.create({ url });
+export type SavedSegment = 'tasks' | 'read' | 'closed';
 
-export function SavedView() {
+const open = (url: string) => void chrome.tabs.create({ url });
+const DAY = 24 * 3_600_000;
+
+export function SavedView({ segment, onSegment, toast }: {
+  segment: SavedSegment;
+  onSegment: (s: SavedSegment) => void;
+  toast: (t: ToastSpec) => void;
+}) {
   const [query, setQuery] = useState('');
   const items = useLive(() => repos.items.list());
   const closed = useLive(() => repos.tabs.listClosed());
+  const lastRun = useLive(() => repos.runs.latest());
 
   const patch = async (item: SavedItem, change: Partial<SavedItem>) => {
     await repos.items.put({ ...item, ...change });
@@ -30,93 +41,125 @@ export function SavedView() {
   );
   const q = query.trim();
   const hits = q && items && closed ? searchClosed(q, closed, items) : [];
-  const byKind = (k: SavedItem['kind']) => (items ?? []).filter((i) => i.kind === k).sort((a, b) => b.createdAt - a.createdAt);
-  const tasks = byKind('task');
-  const reads = byKind('read');
-  const projects = new Map<string, SavedItem[]>();
-  for (const i of byKind('project')) projects.set(i.project ?? 'Other', [...(projects.get(i.project ?? 'Other') ?? []), i]);
-  const empty = items !== null && items.length === 0;
+  const newest = (a: { createdAt: number }, b: { createdAt: number }) => b.createdAt - a.createdAt;
+  // Open tasks first, ticked ones sink to the bottom.
+  const tasks = (items ?? []).filter((i) => i.kind === 'task').sort((a, b) => Number(a.done) - Number(b.done) || newest(a, b));
+  const reads = (items ?? []).filter((i) => i.kind !== 'task').sort(newest);
+  const recentClosed = [...(closed ?? [])].sort((a, b) => (b.closedAt ?? 0) - (a.closedAt ?? 0));
+  const undoable = lastRun && !lastRun.undoneAt && Date.now() - lastRun.at < DAY ? lastRun : null;
+
+  const segs: { id: SavedSegment; label: string; count: number }[] = [
+    { id: 'tasks', label: 'Tasks', count: tasks.filter((t) => !t.done).length },
+    { id: 'read', label: 'Read', count: reads.length },
+    { id: 'closed', label: 'Closed', count: recentClosed.length },
+  ];
 
   return (
-    <section className="panel-body">
+    <section className="view">
       <div className="search">
-        <Autocomplete label="Search closed tabs and saved items" value={query} onChange={setQuery} vocabulary={vocabulary} placeholder="That caching article from last week" />
+        <Autocomplete label="Search saved and closed tabs" value={query} onChange={setQuery} vocabulary={vocabulary} placeholder="Search everything" />
       </div>
 
       {q ? (
         hits.length === 0 ? (
-          <p className="muted center-text">Nothing found for "{q}".</p>
+          <p className="empty">Nothing found for "{q}".</p>
         ) : (
-          <ul className="list">
+          <ul style={{ marginTop: 8 }}>
             {hits.map((h) => (
-              <li key={h.url + h.when} className="row">
-                <div className="row-main">
-                  <div className="row-title" title={h.title}>{h.title}</div>
-                  <div className="row-meta">{hostOf(h.url)} · {h.kind === 'saved' ? 'saved' : 'closed'} {timeAgo(h.when)}{h.note ? ` · ${h.note}` : ''}</div>
-                </div>
-                <button className="link" onClick={() => open(h.url)}>Reopen</button>
+              <li key={h.url + h.when} className="item-row">
+                <span className="row-main">
+                  <span className="row-title" title={h.title}>{h.title}</span>
+                  <span className="row-meta">{hostOf(h.url)} · {h.kind === 'saved' ? 'saved' : 'closed'} {timeAgo(h.when)}{h.note ? ` · ${h.note}` : ''}</span>
+                </span>
+                <button className="icon-btn" aria-label={`Reopen ${h.title}`} onClick={() => open(h.url)}><ReopenIcon size={18} /></button>
               </li>
             ))}
           </ul>
         )
-      ) : empty ? (
-        <div className="empty">
-          <h2>Nothing saved yet</h2>
-          <p>After a review, tasks, reading and project tabs end up here.</p>
-        </div>
       ) : (
         <>
-          {tasks.length > 0 && (
-            <Section title="Tasks" count={tasks.filter((t) => !t.done).length}>
+          <div className="segmented" role="tablist" aria-label="Saved lists">
+            {segs.map((s) => (
+              <button key={s.id} role="tab" aria-selected={segment === s.id} onClick={() => onSegment(s.id)}>{s.label} {s.count}</button>
+            ))}
+          </div>
+
+          {segment === 'tasks' && (tasks.length === 0 ? (
+            <Empty title="No tasks" body="Tabs that are really to-dos land here after a review." />
+          ) : (
+            <ul>
               {tasks.map((t) => (
-                <li key={t.id} className="row">
+                <li key={t.id} className="item-row">
                   <label className="plan-label">
-                    <input type="checkbox" checked={t.done} onChange={() => patch(t, { done: !t.done })} />
+                    <input type="checkbox" checked={t.done} onChange={() => void patch(t, { done: !t.done })} />
                     <span className="row-main">
                       <span className={t.done ? 'row-title done' : 'row-title'}>{t.title}</span>
                       <span className="row-meta">{t.due ? `Due ${t.due} · ` : ''}{hostOf(t.url)}</span>
                     </span>
                   </label>
-                  <button className="link" onClick={() => open(t.url)}>Open</button>
-                  <button className="link" onClick={() => remove(t)} aria-label={`Remove ${t.title}`}>Remove</button>
+                  <button className="icon-btn" aria-label={`Open ${t.title}`} onClick={() => open(t.url)}><ReopenIcon size={18} /></button>
                 </li>
               ))}
-            </Section>
-          )}
-          {reads.length > 0 && (
-            <Section title="To read" count={reads.length}>
-              {reads.map((r) => <ItemRow key={r.id} item={r} onRemove={() => remove(r)} />)}
-            </Section>
-          )}
-          {[...projects].map(([name, list]) => (
-            <Section key={name} title={name} count={list.length}>
-              {list.map((p) => <ItemRow key={p.id} item={p} onRemove={() => remove(p)} />)}
-            </Section>
+            </ul>
           ))}
+
+          {segment === 'read' && (reads.length === 0 ? (
+            <Empty title="Nothing to read" body="Articles and project tabs you save show up here." />
+          ) : (
+            <ul>
+              {reads.map((r) => (
+                <li key={r.id} className="item-row">
+                  <Tile tab={{ url: r.url }} />
+                  <span className="row-main">
+                    <span className="row-title" title={r.title}>{r.title}</span>
+                    <span className="row-meta">{r.project ? `${r.project} · ` : ''}{r.summary ?? hostOf(r.url)}</span>
+                  </span>
+                  <button className="icon-btn" aria-label={`Open ${r.title}`} onClick={() => open(r.url)}><ReopenIcon size={18} /></button>
+                  <button className="icon-btn" aria-label={`Remove ${r.title}`} onClick={() => void remove(r)}><CloseIcon size={16} /></button>
+                </li>
+              ))}
+            </ul>
+          ))}
+
+          {segment === 'closed' && (
+            <>
+              {undoable && (
+                <div className="card" style={{ marginTop: 6, marginBottom: 6 }}>
+                  <div className="link-row" style={{ cursor: 'default' }}>
+                    <span className="grow">Last review closed {undoable.applied.length}, {timeAgo(undoable.at)}</span>
+                    <button className="text-btn" onClick={async () => { const n = await undo(undoable.id); toast({ text: `${n} tabs reopened`, ms: 4000 }); }}>Undo</button>
+                  </div>
+                </div>
+              )}
+              {recentClosed.length === 0 ? (
+                <Empty title="Nothing closed yet" body="Closed tabs stay searchable here for 30 days." />
+              ) : (
+                <ul>
+                  {recentClosed.slice(0, 60).map((t) => (
+                    <li key={t.id} className="item-row">
+                      <Tile tab={t} />
+                      <span className="row-main">
+                        <span className="row-title" title={t.title}>{t.title || hostOf(t.url)}</span>
+                        <span className="row-meta">{hostOf(t.url)} · {t.closedBy === 'agent' ? 'cleared' : 'closed'} {timeAgo(t.closedAt ?? Date.now())}</span>
+                      </span>
+                      <button className="icon-btn" aria-label={`Reopen ${t.title}`} onClick={() => open(t.url)}><ReopenIcon size={18} /></button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
         </>
       )}
     </section>
   );
 }
 
-function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+function Empty({ title, body }: { title: string; body: string }) {
   return (
-    <section className="group">
-      <div className="group-head"><span className="chip">{count}</span><h3>{title}</h3></div>
-      <ul className="plan-list">{children}</ul>
-    </section>
-  );
-}
-
-function ItemRow({ item, onRemove }: { item: SavedItem; onRemove: () => void }) {
-  return (
-    <li className="row">
-      <div className="row-main">
-        <div className="row-title" title={item.title}>{item.title}</div>
-        <div className="row-meta">{item.summary ?? hostOf(item.url)}</div>
-      </div>
-      <button className="link" onClick={() => open(item.url)}>Open</button>
-      <button className="link" onClick={onRemove} aria-label={`Remove ${item.title}`}>Remove</button>
-    </li>
+    <div className="empty">
+      <h2>{title}</h2>
+      <p>{body}</p>
+    </div>
   );
 }
