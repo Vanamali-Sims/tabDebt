@@ -33,7 +33,8 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [savedSegment, setSavedSegment] = useState<SavedSegment>('tasks');
   const [toast, setToast] = useState<ToastSpec | null>(null);
-  const clearToast = useCallback(() => setToast(null), []);
+  // Clear only the toast that finished: an action may already have replaced it with a new one.
+  const clearToast = useCallback((done: ToastSpec) => setToast((cur) => (cur === done ? null : cur)), []);
 
   // Tell the worker a panel is open, so its evening prompt shows here instead of as a notification.
   useEffect(() => {
