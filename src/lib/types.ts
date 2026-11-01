@@ -72,6 +72,8 @@ export interface Verdict {
   project?: string;
   summary?: string;
   task?: TaskDraft;
+  /** Where to reopen a saved tab, when that differs from its address (a video at the spot you stopped). */
+  resumeUrl?: string;
 }
 
 export interface SavedItem {

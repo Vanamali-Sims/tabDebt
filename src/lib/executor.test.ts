@@ -109,3 +109,18 @@ describe('undoRun', () => {
     expect(created).toHaveLength(2);
   });
 });
+
+describe('page checks at close time', () => {
+  it('saves a video at the spot you stopped', async () => {
+    await applyPlan([entry('a', 'read', { resumeUrl: 'https://a.example.com/page?t=597s' })], repos, api);
+    expect((await repos.items.list())[0]?.url).toBe('https://a.example.com/page?t=597s');
+  });
+  it('leaves a tab open if someone started typing after the review', async () => {
+    const careful: TabsApi = { ...api, stillSafeToClose: async (id) => (id === 2 ? 'You started typing here' : null) };
+    const { run, skipped } = await applyPlan([entry('a', 'done'), entry('b', 'done')], repos, careful);
+    expect(removed).toEqual([1]);
+    expect(run.applied.map((x) => x.recordId)).toEqual(['a']);
+    expect(skipped).toEqual([{ recordId: 'b', reason: 'You started typing here' }]);
+    expect((await repos.tabs.get('b'))?.closedAt).toBeUndefined();
+  });
+});

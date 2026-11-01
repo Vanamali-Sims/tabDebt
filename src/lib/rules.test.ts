@@ -121,3 +121,20 @@ describe('isSearchResults', () => {
     expect(isSearchResults('https://example.com/search')).toBe(false);
   });
 });
+
+describe('what was seen inside pages', () => {
+  it('keeps a tab with something typed in it, even a duplicate or error page', () => {
+    const draft = tab({ title: '404 not found' });
+    const v = classifyByRules([draft], ctx({ pageState: new Map([[draft.id, { typing: true }]]) })).decided[0];
+    expect(v).toMatchObject({ action: 'keep', reason: 'You were typing here', confidence: 1 });
+  });
+  it('saves an unfinished video with a resume link instead of letting it close', () => {
+    const video = tab({ url: 'https://www.youtube.com/watch?v=abc', title: 'How caching works', lastActiveAt: NOW - 30 * HOUR });
+    const v = classifyByRules([video], ctx({ pageState: new Map([[video.id, { video: { current: 600, duration: 1200, ended: false } }]]) })).decided[0];
+    expect(v).toMatchObject({ action: 'read', reason: 'Stopped at 10:00 of 20:00', resumeUrl: 'https://www.youtube.com/watch?v=abc&t=597s' });
+  });
+  it('without page checks, behaves as before', () => {
+    const t = tab();
+    expect(classifyByRules([t], ctx()).unresolved).toHaveLength(1);
+  });
+});

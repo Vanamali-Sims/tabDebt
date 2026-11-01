@@ -1,6 +1,7 @@
 import type { LanguageModel } from 'ai';
 import { runAgent, type AgentOutput, type PageSnapshot } from './agent/agent';
 import type { DeviceInput } from './agent/device';
+import type { PageState } from './pagestate';
 import { finalizeVerdicts } from './agent/finalize';
 import { classifyByRules } from './rules';
 import type { Settings } from './settings';
@@ -28,6 +29,8 @@ export interface BuildPlanOptions {
   device?: (input: DeviceInput) => Promise<AgentOutput>;
   /** Set when device mode was chosen but the model isn't ready, so the plan says why it used rules only. */
   unavailableNote?: string;
+  /** What was seen inside pages (video progress, typing), when allowed. */
+  pageState?: Map<string, PageState>;
   readPage?: (tabId: number) => Promise<PageSnapshot | null>;
   abortSignal?: AbortSignal;
 }
@@ -52,6 +55,7 @@ export async function buildPlan(opts: BuildPlanOptions): Promise<PlanResult> {
     exclusions: settings.exclusions,
     memory,
     hasChildren,
+    pageState: opts.pageState,
   });
 
   let verdicts: Verdict[] = [...decided];
