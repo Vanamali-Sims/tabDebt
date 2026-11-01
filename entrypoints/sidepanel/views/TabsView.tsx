@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Autocomplete } from '../Autocomplete';
 import { BookmarkIcon, CheckIcon, ChevronIcon, ClockIcon, CloseIcon, LeafIcon } from '../Icons';
+import { NudgeCards } from '../NudgeCards';
 import { Tile } from '../Tile';
 import type { ToastSpec } from '../Toast';
 import type { SavedSegment } from './SavedView';
@@ -160,6 +161,8 @@ export function TabsView({ onReview, searching, onOpenSaved, toast }: {
         </div>
         <button className={hasDebt ? 'pill' : 'pill pill-quiet'} onClick={onReview} disabled={!tabs || tabs.length === 0}>Review tabs</button>
       </div>
+
+      <NudgeCards onReview={onReview} />
 
       {all.debt > 0 && hasDebt && (
         <div className="bar" role="img" aria-label={`${counts.active} active, ${counts.idle} idle, ${counts.forgotten} forgotten`}>

@@ -11,6 +11,7 @@ import { hostOf } from '@/src/lib/format';
 import { buildVocabulary } from '@/src/lib/suggest';
 import { useOpenTabs } from '@/src/lib/useTabs';
 import { useLive, useSettings } from '@/src/lib/useAsync';
+import { formatMinutes, fromTimeInput, learnFinishTime, loadLastActive, toTimeInput } from '@/src/lib/nudge';
 
 const MODES: { id: Settings['mode']; name: string; hint: string; badge: string; free: boolean }[] = [
   { id: 'key', name: 'Your API key', hint: 'Claude, ChatGPT, Gemini or any provider', badge: '~$1/mo', free: false },
@@ -34,6 +35,9 @@ export function SettingsView() {
   const siteVocabulary = useMemo(() => buildVocabulary([...(openTabs ?? []), ...(closedTabs ?? [])].map((t) => hostOf(t.url))), [openTabs, closedTabs]);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string } | null>(null);
   const [newSite, setNewSite] = useState('');
+  const lastActive = useLive(() => loadLastActive());
+  const learned = lastActive ? learnFinishTime(lastActive, new Date()) : null;
+  const paused = s.pausedUntil > Date.now();
 
   const test = async () => {
     setStatus({ kind: 'busy', text: 'Testing…' });
@@ -120,6 +124,49 @@ export function SettingsView() {
             {m.id === 'local' && localForm}
           </div>
         ))}
+      </div>
+
+      <div className="section-head" style={{ marginTop: 8 }}><h2 className="section-label">Routine</h2></div>
+      <div className="card">
+        <div className="settings-row">
+          <span className="grow"><strong>Finishing-up reminder</strong><span className="hint">Once, when it looks like you're wrapping up</span></span>
+          <Switch checked={s.wrapUpPrompt} label="Finishing-up reminder" onChange={(on) => void update({ wrapUpPrompt: on, nudgeAsked: true })} />
+        </div>
+        <label className="settings-row">
+          <span className="grow">
+            <strong>Usually finish</strong>
+            <span className="hint">{s.finishMinutes !== null ? 'Set by you' : learned !== null ? `Learned: ${formatMinutes(learned)}` : 'Learning from this week'}</span>
+          </span>
+          <input
+            className="time-field"
+            type="time"
+            aria-label="Usual finish time"
+            value={s.finishMinutes !== null ? toTimeInput(s.finishMinutes) : learned !== null ? toTimeInput(learned) : ''}
+            onChange={(e) => void update({ finishMinutes: fromTimeInput(e.target.value) })}
+          />
+        </label>
+        <label className="settings-row">
+          <span className="grow"><strong>How often</strong><span className="hint">The badge always shows your count</span></span>
+          <select className="time-field" value={s.frequency} onChange={(e) => void update({ frequency: e.target.value as Settings['frequency'] })}>
+            <option value="daily">Weekdays</option>
+            <option value="weekly">Fridays</option>
+            <option value="badge">Badge only</option>
+          </select>
+        </label>
+        <label className="settings-row">
+          <span className="grow"><strong>Tab limit</strong><span className="hint">Badge turns amber from here</span></span>
+          <input className="time-field" style={{ width: 72 }} type="number" min={3} max={99} value={s.tabLimit} onChange={(e) => { const n = Number(e.target.value); if (n >= 3 && n <= 99) void update({ tabLimit: n }); }} />
+        </label>
+        {paused && (
+          <div className="settings-row">
+            <span className="grow"><strong>Paused</strong><span className="hint">Until {new Date(s.pausedUntil).toLocaleDateString([], { weekday: 'long' })}</span></span>
+            <button className="text-btn" onClick={() => void update({ pausedUntil: 0 })}>Resume</button>
+          </div>
+        )}
+        <div className="settings-row">
+          <span className="grow"><strong>Morning view</strong><span className="hint">First open of the day</span></span>
+          <Switch checked={s.morningView} label="Morning view" onChange={(on) => void update({ morningView: on })} />
+        </div>
       </div>
 
       <div className="section-head" style={{ marginTop: 8 }}><h2 className="section-label">What it can see</h2></div>

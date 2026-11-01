@@ -19,6 +19,17 @@ export interface Settings {
   maxSteps: number;
   /** Open the panel on "Here's where you left off" the first time each day. */
   morningView: boolean;
+  /** Ask "Finishing up?" once in the evening. Off until the person says yes after their first review. */
+  wrapUpPrompt: boolean;
+  /** Whether that question has been asked, so it's asked once. */
+  nudgeAsked: boolean;
+  /** Usual finish time in minutes after midnight, once confirmed. Null means use the learned one. */
+  finishMinutes: number | null;
+  frequency: 'daily' | 'weekly' | 'badge';
+  /** The badge turns amber from this many open tabs, and prompts need at least this many. */
+  tabLimit: number;
+  /** Reminders are paused until this time (ms). */
+  pausedUntil: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +43,12 @@ export const DEFAULT_SETTINGS: Settings = {
   maxTabsPerRun: 40,
   maxSteps: 12,
   morningView: true,
+  wrapUpPrompt: false,
+  nudgeAsked: false,
+  finishMinutes: null,
+  frequency: 'daily',
+  tabLimit: 10,
+  pausedUntil: 0,
 };
 
 /** A small, inexpensive default model for each provider. Users can type any model name. */
