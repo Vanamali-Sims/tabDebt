@@ -98,8 +98,8 @@ export function MorningView({ onDone, onReview, onOpenSaved }: {
             </button>
           )}
           {brief.closedCount > 0 && (
-            <button className="link-row" onClick={() => onOpenSaved('closed')}>
-              <span className="grow">Closed last night</span><span className="count-r">{brief.closedCount}</span><ChevronIcon size={16} />
+            <button className="link-row" onClick={() => onOpenSaved('cleared')}>
+              <span className="grow">Cleared last night</span><span className="count-r">{brief.closedCount}</span><ChevronIcon size={16} />
             </button>
           )}
         </div>

@@ -5,16 +5,16 @@ import { Tile } from '../Tile';
 import type { ToastSpec } from '../Toast';
 import { notifyChanged } from '@/src/lib/channel';
 import { hostOf, timeAgo } from '@/src/lib/format';
+import { clearedGroups, clearedNote, clearedThisWeek } from '@/src/lib/cleared';
 import { searchClosed } from '@/src/lib/search';
 import { buildVocabulary } from '@/src/lib/suggest';
 import { repos, undo } from '@/src/lib/services';
 import { useLive } from '@/src/lib/useAsync';
 import type { SavedItem } from '@/src/lib/types';
 
-export type SavedSegment = 'tasks' | 'read' | 'closed';
+export type SavedSegment = 'tasks' | 'read' | 'cleared';
 
 const open = (url: string) => void chrome.tabs.create({ url });
-const DAY = 24 * 3_600_000;
 
 export function SavedView({ segment, onSegment, toast }: {
   segment: SavedSegment;
@@ -23,8 +23,9 @@ export function SavedView({ segment, onSegment, toast }: {
 }) {
   const [query, setQuery] = useState('');
   const items = useLive(() => repos.items.list());
-  const closed = useLive(() => repos.tabs.listClosed());
-  const lastRun = useLive(() => repos.runs.latest());
+  // Only what tabDebt closed. Tabs you closed yourself are the browser's history, not ours.
+  const closed = useLive(async () => (await repos.tabs.listClosed()).filter((t) => t.closedBy === 'agent'));
+  const runs = useLive(() => repos.runs.list());
 
   const patch = async (item: SavedItem, change: Partial<SavedItem>) => {
     await repos.items.put({ ...item, ...change });
@@ -45,19 +46,19 @@ export function SavedView({ segment, onSegment, toast }: {
   // Open tasks first, ticked ones sink to the bottom.
   const tasks = (items ?? []).filter((i) => i.kind === 'task').sort((a, b) => Number(a.done) - Number(b.done) || newest(a, b));
   const reads = (items ?? []).filter((i) => i.kind !== 'task').sort(newest);
-  const recentClosed = [...(closed ?? [])].sort((a, b) => (b.closedAt ?? 0) - (a.closedAt ?? 0));
-  const undoable = lastRun && !lastRun.undoneAt && Date.now() - lastRun.at < DAY ? lastRun : null;
+  const now = Date.now();
+  const groups = clearedGroups(runs ?? [], now);
 
   const segs: { id: SavedSegment; label: string; count: number }[] = [
     { id: 'tasks', label: 'Tasks', count: tasks.filter((t) => !t.done).length },
     { id: 'read', label: 'Read', count: reads.length },
-    { id: 'closed', label: 'Closed', count: recentClosed.length },
+    { id: 'cleared', label: 'Cleared', count: clearedThisWeek(groups, now) },
   ];
 
   return (
     <section className="view">
       <div className="search">
-        <Autocomplete label="Search saved and closed tabs" value={query} onChange={setQuery} vocabulary={vocabulary} placeholder="Search everything" />
+        <Autocomplete label="Search saved tabs and tabs tabDebt cleared" value={query} onChange={setQuery} vocabulary={vocabulary} placeholder="Search saved and cleared" />
       </div>
 
       {q ? (
@@ -69,7 +70,7 @@ export function SavedView({ segment, onSegment, toast }: {
               <li key={h.url + h.when} className="item-row">
                 <span className="row-main">
                   <span className="row-title" title={h.title}>{h.title}</span>
-                  <span className="row-meta">{hostOf(h.url)} · {h.kind === 'saved' ? 'saved' : 'closed'} {timeAgo(h.when)}{h.note ? ` · ${h.note}` : ''}</span>
+                  <span className="row-meta">{hostOf(h.url)} · {h.kind === 'saved' ? 'saved' : 'cleared'} {timeAgo(h.when)}{h.note ? ` · ${h.note}` : ''}</span>
                 </span>
                 <button className="icon-btn" aria-label={`Reopen ${h.title}`} onClick={() => open(h.url)}><ReopenIcon size={18} /></button>
               </li>
@@ -121,34 +122,31 @@ export function SavedView({ segment, onSegment, toast }: {
             </ul>
           ))}
 
-          {segment === 'closed' && (
-            <>
-              {undoable && (
-                <div className="card" style={{ marginTop: 6, marginBottom: 6 }}>
-                  <div className="link-row" style={{ cursor: 'default' }}>
-                    <span className="grow">Last review closed {undoable.applied.length}, {timeAgo(undoable.at)}</span>
-                    <button className="text-btn" onClick={async () => { const n = await undo(undoable.id); toast({ text: `${n} tabs reopened`, ms: 4000 }); }}>Undo</button>
-                  </div>
+          {segment === 'cleared' && (groups.length === 0 ? (
+            <Empty title="Nothing cleared yet" body="Tabs tabDebt closes show up here for 30 days, with why each one went." />
+          ) : (
+            groups.map((g) => (
+              <div key={g.runId} className="section">
+                <div className="section-head">
+                  <h2 className="section-label">{g.label}</h2>
+                  <span className="section-hint">{g.kind === 'manual' ? 'Closed from the panel' : `${g.tabs.length} cleared`}</span>
+                  <button className="text-btn" style={{ minHeight: 32, padding: '0 4px' }} aria-label={`Undo the clear from ${g.label}`} onClick={async () => { const n = await undo(g.runId); toast({ text: `${n} ${n === 1 ? 'tab' : 'tabs'} reopened`, ms: 4000 }); }}>Undo</button>
                 </div>
-              )}
-              {recentClosed.length === 0 ? (
-                <Empty title="Nothing closed yet" body="Closed tabs stay searchable here for 30 days." />
-              ) : (
                 <ul>
-                  {recentClosed.slice(0, 60).map((t) => (
-                    <li key={t.id} className="item-row">
-                      <Tile tab={t} />
+                  {g.tabs.map((a) => (
+                    <li key={a.recordId} className="item-row">
+                      <Tile tab={{ url: a.url }} />
                       <span className="row-main">
-                        <span className="row-title" title={t.title}>{t.title || hostOf(t.url)}</span>
-                        <span className="row-meta">{hostOf(t.url)} · {t.closedBy === 'agent' ? 'cleared' : 'closed'} {timeAgo(t.closedAt ?? Date.now())}</span>
+                        <span className="row-title" title={a.title}>{a.title || hostOf(a.url)}</span>
+                        <span className="row-meta">{clearedNote(a)}</span>
                       </span>
-                      <button className="icon-btn" aria-label={`Reopen ${t.title}`} onClick={() => open(t.url)}><ReopenIcon size={18} /></button>
+                      <button className="icon-btn" aria-label={`Reopen ${a.title}`} onClick={() => open(a.url)}><ReopenIcon size={18} /></button>
                     </li>
                   ))}
                 </ul>
-              )}
-            </>
-          )}
+              </div>
+            ))
+          ))}
         </>
       )}
     </section>
