@@ -172,6 +172,11 @@ export function afterSkip(log: NudgeLog, now: Date): NudgeLog {
 /** The back-off question is due once the streak reaches the limit. */
 export const backoffDue = (log: NudgeLog) => log.skipStreak >= BACKOFF_AFTER;
 
+/** The confirmed finish time, else the learned one, else null. */
+export function effectiveFinish(confirmed: number | null, lastActive: Record<string, number>, now: Date): number | null {
+  return confirmed ?? learnFinishTime(lastActive, now);
+}
+
 // ---- Storage ----
 
 export async function loadLog(): Promise<NudgeLog> {
