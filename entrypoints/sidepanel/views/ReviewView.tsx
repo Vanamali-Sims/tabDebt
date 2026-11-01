@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BackIcon } from '../Icons';
 import { Tile } from '../Tile';
 import { friendlyError, type PlanResult } from '@/src/lib/review';
-import { ConfigError, applyApprovedPlan, generatePlan, repos } from '@/src/lib/services';
+import { ConfigError, applyReview, generatePlan, repos } from '@/src/lib/services';
 import { hostOf } from '@/src/lib/format';
 import type { Action, PlanEntry, TabRecord } from '@/src/lib/types';
 import type { ApplyResult } from '@/src/lib/executor';
@@ -91,7 +91,7 @@ export function ReviewView({ onClose, onApplied }: { onClose: () => void; onAppl
   const keepers = entries.filter((e) => e.action === 'keep');
   const apply = async () => {
     setApplying(true);
-    onApplied(await applyApprovedPlan(entries));
+    onApplied(await applyReview(entries));
   };
   const label = n.close === 0 ? 'Nothing to close' : n.save > 0 ? `Close ${n.close} · Save ${n.save}` : `Close ${n.close}`;
 

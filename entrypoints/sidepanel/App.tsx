@@ -1,15 +1,18 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { LeafIcon, SavedIcon, SearchIcon, SettingsIcon, TabsIcon } from './Icons';
 import { Toast, type ToastSpec } from './Toast';
+import { MorningView } from './views/MorningView';
 import { ReviewView } from './views/ReviewView';
 import { SavedView, type SavedSegment } from './views/SavedView';
 import { SettingsView } from './views/SettingsView';
 import { TabsView } from './views/TabsView';
+import { loadBrief, shouldShowMorning } from '@/src/lib/brief';
 import { undo } from '@/src/lib/services';
+import { loadSettings } from '@/src/lib/settings';
 import type { ApplyResult } from '@/src/lib/executor';
 
-type View = 'tabs' | 'saved' | 'settings' | 'review';
-const NAV: { id: Exclude<View, 'review'>; label: string; icon: ReactNode }[] = [
+type View = 'tabs' | 'saved' | 'settings' | 'review' | 'morning';
+const NAV: { id: Exclude<View, 'review' | 'morning'>; label: string; icon: ReactNode }[] = [
   { id: 'tabs', label: 'Tabs', icon: <TabsIcon size={22} /> },
   { id: 'saved', label: 'Saved', icon: <SavedIcon size={22} /> },
   { id: 'settings', label: 'Settings', icon: <SettingsIcon size={22} /> },
@@ -22,12 +25,23 @@ export function appliedSummary(result: ApplyResult): string {
   return saved > 0 ? `Closed ${closed} · Saved ${saved}` : `Closed ${closed}`;
 }
 
+/** The morning view is the Tabs section's first screen of the day. */
+const onNav = (view: View, id: View) => view === id || (view === 'morning' && id === 'tabs');
+
 export function App() {
   const [view, setView] = useState<View>('tabs');
   const [searching, setSearching] = useState(false);
   const [savedSegment, setSavedSegment] = useState<SavedSegment>('tasks');
   const [toast, setToast] = useState<ToastSpec | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
+
+  // First open of the day: start on "Here's where you left off".
+  useEffect(() => {
+    void (async () => {
+      const [brief, settings] = await Promise.all([loadBrief(), loadSettings()]);
+      if (shouldShowMorning(brief, new Date(), settings.morningView)) setView((v) => (v === 'tabs' ? 'morning' : v));
+    })();
+  }, []);
 
   const openSaved = (seg: SavedSegment) => {
     setSavedSegment(seg);
@@ -48,7 +62,7 @@ export function App() {
       {view !== 'review' && (
         <header className="header">
           <h1 className="logo">
-            <LeafIcon size={20} /> {view === 'saved' ? 'Saved' : view === 'settings' ? 'Settings' : 'Tab Debt'}
+            <LeafIcon size={20} /> {view === 'saved' ? 'Saved' : view === 'settings' ? 'Settings' : view === 'morning' ? 'Good morning' : 'Tab Debt'}
           </h1>
           {view === 'tabs' && (
             <button className="icon-btn" aria-label="Search open tabs" aria-pressed={searching} onClick={() => setSearching((s) => !s)}>
@@ -61,13 +75,14 @@ export function App() {
         {view === 'tabs' && <TabsView onReview={() => setView('review')} searching={searching} onOpenSaved={openSaved} toast={setToast} />}
         {view === 'saved' && <SavedView segment={savedSegment} onSegment={setSavedSegment} toast={setToast} />}
         {view === 'settings' && <SettingsView />}
+        {view === 'morning' && <MorningView onDone={() => setView('tabs')} onReview={() => setView('review')} onOpenSaved={openSaved} />}
         {view === 'review' && <ReviewView onClose={() => setView('tabs')} onApplied={reviewed} />}
       </main>
       {toast && <Toast toast={toast} onDone={clearToast} />}
       {view !== 'review' && (
         <nav className="nav" aria-label="Sections">
           {NAV.map((n) => (
-            <button key={n.id} className={view === n.id ? 'nav-item active' : 'nav-item'} aria-current={view === n.id ? 'page' : undefined} onClick={() => setView(n.id)}>
+            <button key={n.id} className={onNav(view, n.id) ? 'nav-item active' : 'nav-item'} aria-current={onNav(view, n.id) ? 'page' : undefined} onClick={() => setView(n.id)}>
               {n.icon}
               <span>{n.label}</span>
             </button>

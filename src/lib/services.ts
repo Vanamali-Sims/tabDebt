@@ -1,4 +1,5 @@
 import { ConfigError, createModel } from './agent/models';
+import { isEvening, makeBrief, saveBrief } from './brief';
 import { idbRepos } from './db';
 import { notifyChanged } from './channel';
 import { applyPlan, undoRun, type ApplyResult, type TabsApi } from './executor';
@@ -32,6 +33,20 @@ export async function applyApprovedPlan(plan: PlanEntry[]): Promise<ApplyResult>
   const result = await applyPlan(plan, repos, tabsApi);
   await chrome.storage.session.remove('reminding'); // the reminder has done its job
   notifyChanged();
+  return result;
+}
+
+/**
+ * Applies a review. In the evening, a review is the wrap-up: it also writes tomorrow's brief from the
+ * tabs left open, so the morning view is ready without another AI call.
+ */
+export async function applyReview(plan: PlanEntry[], now: Date = new Date()): Promise<ApplyResult> {
+  const result = await applyApprovedPlan(plan);
+  if (result.run.applied.length > 0 && isEvening(now, null)) {
+    const open = await repos.tabs.listOpen();
+    await saveBrief(makeBrief({ kind: 'wrapped', open, now, closedCount: result.run.applied.length, runId: result.run.id }));
+    notifyChanged();
+  }
   return result;
 }
 

@@ -2,7 +2,9 @@ import { ChromeSessionStore, IdbTabStore } from '@/src/lib/db';
 import { notifyChanged } from '@/src/lib/channel';
 import { REMINDER_HOUR, REMINDER_MIN_TABS, REMINDER_MINUTE, badgeText, msUntilNext } from '@/src/lib/badge';
 import { idbRepos } from '@/src/lib/db';
+import { briefOnLeave, isEvening, loadBrief, saveBrief, shouldShowMorning } from '@/src/lib/brief';
 import { prune } from '@/src/lib/retention';
+import { loadSettings } from '@/src/lib/settings';
 import { recordSnapshot } from '@/src/lib/snapshots';
 import { isSnoozeAlarm, restoreSnoozed, snoozeIdOf, wakeSnoozed } from '@/src/lib/snooze';
 import { Tracker } from '@/src/lib/tracker';
@@ -31,13 +33,34 @@ export default defineBackground(() => {
   const tracker = new Tracker(store, new ChromeSessionStore());
 
   // The badge shows the open tab count. After the end-of-day reminder it turns rust until a review is applied.
+  // When the morning view is waiting, it shows a green dot instead.
   const updateBadge = async () => {
     const count = (await store.listOpen()).length;
-    const { reminding } = await chrome.storage.session.get('reminding');
     await recordSnapshot(count);
+    const settings = await loadSettings();
+    if (shouldShowMorning(await loadBrief(), new Date(), settings.morningView)) {
+      await chrome.action.setBadgeText({ text: '•' });
+      await chrome.action.setBadgeBackgroundColor({ color: '#86b48e' });
+      await chrome.action.setTitle({ title: "Here's where you left off" });
+      return;
+    }
+    const { reminding } = await chrome.storage.session.get('reminding');
     await chrome.action.setBadgeText({ text: badgeText(count) });
     await chrome.action.setBadgeBackgroundColor({ color: reminding ? '#c4705a' : '#7fb08a' });
     await chrome.action.setTitle({ title: reminding ? `Time to review: ${count} tabs open` : 'Open Tab Debt' });
+  };
+
+  /**
+   * Leaving in the evening (locking the screen or closing the last window) writes tomorrow's brief from
+   * whatever is still open, so the morning view works even without a review. Closes nothing.
+   */
+  const leave = async () => {
+    const now = new Date();
+    if (!isEvening(now, null)) return;
+    const { leftAt } = await chrome.storage.session.get('leftAt');
+    if (typeof leftAt === 'number' && now.getTime() - leftAt < 60_000) return; // one window closing fires per tab
+    await chrome.storage.session.set({ leftAt: now.getTime() });
+    await saveBrief(briefOnLeave(await loadBrief(), await store.listOpen(), now));
   };
 
   // Events can fire in bursts (switching tabs also changes window focus), so handlers
@@ -50,6 +73,11 @@ export default defineBackground(() => {
       .then(notifyChanged)
       .catch((err) => console.error(`[tab-debt] ${label} failed`, err));
   };
+
+  // The panel writes and dismisses the brief, so the dot follows it.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && (changes.brief || changes.settings)) void updateBadge().catch(() => {});
+  });
 
   chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   chrome.idle.setDetectionInterval(60);
@@ -103,7 +131,13 @@ export default defineBackground(() => {
     });
   });
 
-  chrome.tabs.onRemoved.addListener((tabId) => run('tab removed', () => tracker.removed(tabId)));
+  chrome.tabs.onRemoved.addListener((tabId, info) =>
+    run('tab removed', async () => {
+      // Closing the last window: take the brief before the tabs are marked closed.
+      if (info.isWindowClosing && (await chrome.windows.getAll()).length <= 1) await leave();
+      await tracker.removed(tabId);
+    }),
+  );
 
   chrome.windows.onFocusChanged.addListener((windowId) => {
     run('window focus', async () => {
@@ -116,6 +150,7 @@ export default defineBackground(() => {
     run('idle change', async () => {
       if (state === 'active') await tracker.resume(await activeTabInFocusedWindow());
       else await tracker.pause();
+      if (state === 'locked') await leave();
     });
   });
 });
