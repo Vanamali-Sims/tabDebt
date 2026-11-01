@@ -33,25 +33,24 @@ const assert = (cond, msg) => { if (!cond) throw new Error('ASSERT: ' + msg); co
   assert(webTabs() === 5, 'five web tabs are open');
 
   await panel.click('text=Review tabs');
-  await panel.waitForSelector('text=End of day');
-  const doneRows = await panel.locator('.group-done .plan-row').count();
+  await panel.waitForSelector('.counters');
+  const doneRows = await panel.locator('li[data-action=done]').count();
   assert(doneRows === 2, `plan proposes closing 2 tabs as done (got ${doneRows})`);
   await panel.screenshot({ path: path.resolve(__dirname, '../context/e2e-review.png') }).catch(() => {});
 
-  await panel.click('text=Apply plan');
-  await panel.waitForSelector('text=All clear');
+  await panel.click('.review-foot .pill');
+  await panel.waitForSelector('.toast');
   await panel.waitForTimeout(500);
   assert(webTabs() === 3, `two tabs were closed (now ${webTabs()})`);
 
-  await panel.click('button:has-text("Undo")');
-  await panel.waitForSelector('text=Put everything back');
+  await panel.click('.toast button:has-text("Undo")');
+  await panel.waitForSelector('text=/tabs reopened/');
   await panel.waitForTimeout(800);
   assert(webTabs() === 5, `undo reopened them (now ${webTabs()})`);
 
-  await panel.click('button:has-text("Done")');
   await panel.click('nav >> text=Settings');
-  await panel.waitForSelector('text=How should it think?');
-  assert(await panel.locator('.chip-tag', { hasText: 'bank' }).count() === 1, 'settings list the never-look sites');
+  await panel.waitForSelector('text=Never look at');
+  assert(await panel.locator('.chip', { hasText: 'bank' }).count() === 1, 'settings list the never-look sites');
 
   console.log('E2E OK');
   await ctx.close();

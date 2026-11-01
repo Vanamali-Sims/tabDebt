@@ -68,7 +68,7 @@ function startFakeProvider() {
 
   await panel.click('nav >> text=Tabs');
   await panel.click('text=Review tabs');
-  await panel.waitForSelector('text=End of day', { timeout: 15000 });
+  await panel.waitForSelector('.counters', { timeout: 15000 });
 
   assert(seen.length === 1 && seen[0].url === '/v1/chat/completions', 'one request reached the provider');
   const sent = JSON.stringify(seen[0].json);
@@ -76,14 +76,13 @@ function startFakeProvider() {
   assert(sent.includes('Page a') && sent.includes('Page b') && sent.includes('Page c'), 'request listed the tabs');
   assert(!sent.includes('chrome-extension'), 'request never mentions extension pages');
 
-  assert(await panel.locator('.group-task .plan-row', { hasText: 'Do the thing from page B' }).count() === 1, 'agent task shows in the Tasks group');
-  assert(await panel.locator('.group-read .plan-row').count() === 2, 'agent read-later tabs show in To read');
-  assert(await panel.locator('text=/Used 366 tokens/').count() === 1, 'token usage is shown');
+  assert(await panel.locator('li[data-action=task]', { hasText: 'Do the thing from page B' }).count() === 1, 'agent task shows under Save as a task');
+  assert(await panel.locator('li[data-action=read]').count() === 2, 'agent read-later tabs show under Save');
+  assert(await panel.locator('text=/366 tokens/').count() === 1, 'token usage is shown');
 
   await panel.screenshot({ path: path.resolve(__dirname, '../context/e2e-agent-review.png') }).catch(() => {});
-  await panel.click('text=Apply plan');
-  await panel.waitForSelector('text=All clear');
-  await panel.click('button:has-text("Done")');
+  await panel.click('.review-foot .pill');
+  await panel.waitForSelector('.toast');
   await panel.click('nav >> text=Saved');
   await panel.waitForSelector('text=Do the thing from page B');
   assert(await panel.locator('text=Do the thing from page B').count() >= 1, 'the task landed in Saved');
