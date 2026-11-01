@@ -17,6 +17,8 @@ export interface Settings {
   maxTabsPerRun: number;
   /** Most model steps for one review. */
   maxSteps: number;
+  /** Open the panel on "Here's where you left off" the first time each day. */
+  morningView: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   exclusions: DEFAULT_EXCLUSIONS,
   maxTabsPerRun: 40,
   maxSteps: 12,
+  morningView: true,
 };
 
 /** A small, inexpensive default model for each provider. Users can type any model name. */
