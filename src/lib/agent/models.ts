@@ -13,7 +13,7 @@ export class ConfigError extends Error {
 
 /** Where requests for these settings go. Shown to the user and used to ask for permission. */
 export function endpointOf(s: Settings): string | null {
-  if (s.mode === 'builtin') return null;
+  if (s.mode === 'builtin' || s.mode === 'device') return null;
   if (s.mode === 'local') return s.baseUrl;
   switch (s.provider) {
     case 'openrouter': return OPENROUTER_URL;
@@ -38,7 +38,7 @@ export function originPattern(url: string): string | null {
  * requests to the provider the user chose.
  */
 export function createModel(s: Settings): LanguageModel {
-  if (s.mode === 'builtin') throw new ConfigError('Built-in mode does not use an AI model.');
+  if (s.mode === 'builtin' || s.mode === 'device') throw new ConfigError('This mode does not use a provider model.');
   if (!s.model.trim()) throw new ConfigError('Choose a model first.');
 
   if (s.mode === 'local') {
