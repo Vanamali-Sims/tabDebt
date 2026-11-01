@@ -15,6 +15,10 @@ export interface Settings {
   baseUrl: string;
   /** Let the agent read the first part of a page. Needs the optional site permission. */
   readPageText: boolean;
+  /** Check how far into a video you got. Asks for YouTube and Vimeo (every site if Unsent text is on). */
+  checkVideo: boolean;
+  /** Keep tabs with something typed in a text box. Asks for every site. Never reads what was typed. */
+  checkTyping: boolean;
   exclusions: string[];
   /** Most tabs one review sends to the agent. */
   maxTabsPerRun: number;
@@ -42,6 +46,8 @@ export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   baseUrl: 'http://localhost:11434/v1',
   readPageText: false,
+  checkVideo: false,
+  checkTyping: false,
   exclusions: DEFAULT_EXCLUSIONS,
   maxTabsPerRun: 40,
   maxSteps: 12,

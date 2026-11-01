@@ -4,6 +4,7 @@ import { Autocomplete } from '../Autocomplete';
 import { Switch } from '../Switch';
 import { ConfigError, createModel, endpointOf, originPattern } from '@/src/lib/agent/models';
 import { deviceStatus, downloadDeviceModel, type DeviceStatus } from '@/src/lib/agent/device';
+import { ALL_SITES, VIDEO_ORIGINS, neededOrigins } from '@/src/lib/pagestate';
 import { notifyChanged } from '@/src/lib/channel';
 import { friendlyError } from '@/src/lib/review';
 import { DEFAULT_MODELS, type Provider, type Settings } from '@/src/lib/settings';
@@ -58,14 +59,30 @@ export function SettingsView() {
     }
   };
 
-  const togglePageText = async (on: boolean) => {
-    if (on) {
-      const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
-      if (!granted) return;
-    } else {
-      await chrome.permissions.remove({ origins: ['<all_urls>'] }).catch(() => {});
+  const [accessNote, setAccessNote] = useState<string | null>(null);
+
+  /**
+   * Page text, video progress and unsent text each need site access. Turning one on asks for what it needs;
+   * turning one off gives back only what nothing else still uses.
+   */
+  const setAccess = async (patch: Partial<Pick<Settings, 'readPageText' | 'checkVideo' | 'checkTyping'>>) => {
+    setAccessNote(null);
+    const next = { ...s, ...patch };
+    const want = neededOrigins(next);
+    const turningOn = Object.values(patch).some(Boolean);
+    if (turningOn && want.length > 0) {
+      // Must be the first await after the click, or the browser won't show the prompt. Already granted returns true.
+      const granted = await chrome.permissions.request({ origins: want });
+      if (!granted) return setAccessNote("Not turned on: the browser didn't get your OK.");
     }
-    await update({ readPageText: on });
+    if (!want.includes(ALL_SITES[0]!)) await chrome.permissions.remove({ origins: ALL_SITES }).catch(() => {});
+    if (want.length === 0) await chrome.permissions.remove({ origins: VIDEO_ORIGINS }).catch(() => {});
+    // Giving back every-site access can take video sites with it. Then the video check needs a fresh OK.
+    if (next.checkVideo && !(await chrome.permissions.contains({ origins: VIDEO_ORIGINS }))) {
+      next.checkVideo = false;
+      setAccessNote('Video progress was turned off with it. Turn it back on to allow YouTube and Vimeo.');
+    }
+    await update({ readPageText: next.readPageText, checkVideo: next.checkVideo, checkTyping: next.checkTyping });
   };
 
   const addSite = async () => {
@@ -180,9 +197,18 @@ export function SettingsView() {
         </div>
         <div className="settings-row">
           <span className="grow"><strong>Page text</strong><span className="hint">First few paragraphs, for unclear tabs</span></span>
-          <Switch checked={s.readPageText} disabled={s.mode === 'builtin' || s.mode === 'device'} label="Page text" onChange={(on) => void togglePageText(on)} />
+          <Switch checked={s.readPageText} disabled={s.mode === 'builtin' || s.mode === 'device'} label="Page text" onChange={(on) => void setAccess({ readPageText: on })} />
+        </div>
+        <div className="settings-row">
+          <span className="grow"><strong>Video progress</strong><span className="hint">How far you got, so unfinished videos are saved at that spot. Asks for YouTube and Vimeo</span></span>
+          <Switch checked={s.checkVideo} label="Video progress" onChange={(on) => void setAccess({ checkVideo: on })} />
+        </div>
+        <div className="settings-row">
+          <span className="grow"><strong>Unsent text</strong><span className="hint">Keeps tabs where you've typed something. Asks for every site. Never reads what you typed</span></span>
+          <Switch checked={s.checkTyping} label="Unsent text" onChange={(on) => void setAccess({ checkTyping: on })} />
         </div>
       </div>
+      {accessNote && <p className="status error" role="status" style={{ padding: '6px 20px 0' }}>{accessNote}</p>}
 
       <div className="section-head" style={{ marginTop: 8 }}><h2 className="section-label">Never look at</h2></div>
       <ul className="chips">
