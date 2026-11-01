@@ -35,6 +35,29 @@ export function App() {
   const [toast, setToast] = useState<ToastSpec | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
 
+  // Tell the worker a panel is open, so its evening prompt shows here instead of as a notification.
+  useEffect(() => {
+    const port = chrome.runtime.connect({ name: 'panel' });
+    return () => port.disconnect();
+  }, []);
+
+  // "Wrap up" from a notification or the icon menu opens the panel on the right screen.
+  useEffect(() => {
+    const check = async () => {
+      const { openView } = await chrome.storage.session.get('openView');
+      if (openView === 'review' || openView === 'settings') {
+        await chrome.storage.session.remove('openView');
+        setView(openView);
+      }
+    };
+    void check();
+    const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === 'session' && changes.openView?.newValue) void check();
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
+
   // First open of the day: start on "Here's where you left off".
   useEffect(() => {
     void (async () => {
