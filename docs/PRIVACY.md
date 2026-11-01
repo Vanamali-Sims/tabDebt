@@ -12,10 +12,17 @@ Everything is stored on your computer, inside the extension:
 - **Snoozed tabs**: the address and title of tabs you snooze, until they reopen.
 - **Daily tab counts**: one number per day for the last two weeks, used for "down from yesterday".
 - **Sites you kept**: addresses you unticked in a review, so they stay open next time. You can remove them in Settings.
+- **Tomorrow's brief**: the titles and addresses of up to three tabs to pick up, and a few counts. Replaced each evening.
+- **Finish times**: the time of your last browser activity each day, for three weeks, to learn when you usually finish.
+- **Reminder history**: whether you were asked, answered or skipped, to keep reminders to once a day and back off.
 
 ## What leaves your computer
 
-**Built-in mode (default): nothing.** Tabs are sorted by rules that run in your browser.
+**On this device (default): nothing.** Tabs are sorted by Chrome's built-in model and rules, both running on your computer. The model is downloaded once from Google by Chrome itself; tabDebt never sends your tabs anywhere.
+
+**Rules only: nothing.**
+
+**Wrap-up signals never leave your computer.** They are worked out from tab addresses as you browse, and only decide when to ask.
 
 **Your own key or a local model:** when you run a review, the extension sends the **titles, addresses and usage details** (time viewed, visits, last seen, which tab opened which) of the tabs the rules couldn't decide to the AI provider **you chose**, using **your key**. If you turn on page reading, it may also send the first part of a page's text for up to ten pages per review. Requests go straight from your browser to that provider and nowhere else. The provider's own privacy terms apply to what you send them.
 
@@ -31,9 +38,12 @@ Tabs whose address contains anything on your **Never look at** list are never re
 |---|---|
 | tabs | See tab titles, addresses and activity, and close tabs you approve |
 | storage | Keep your history, settings and saved items |
-| alarms | A daily end-of-day reminder and cleanup |
+| alarms | The "Not yet" follow-up, snoozed tabs and cleanup |
 | idle | Pause the clock when you step away |
 | sidePanel | Show the panel |
+| tabGroups | Reopen this morning's pick-up as one labelled tab group |
+| notifications | The one "Finishing up?" prompt, only after you say yes to it |
+| contextMenus | Right-click the icon to review now, skip tonight or pause reminders |
 | scripting + site access (optional) | Read page text, only if you turn on **Page text**, and only for the AI step |
 | Access to your AI provider's address (optional) | Asked for when you test your connection, for that one address |
 
