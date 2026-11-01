@@ -1,5 +1,6 @@
 import type { LanguageModel } from 'ai';
 import { runAgent, type AgentOutput, type PageSnapshot } from './agent/agent';
+import type { DeviceInput } from './agent/device';
 import { finalizeVerdicts } from './agent/finalize';
 import { classifyByRules } from './rules';
 import type { Settings } from './settings';
@@ -21,8 +22,12 @@ export interface BuildPlanOptions {
   settings: Settings;
   now: number;
   activeRecordId?: string;
-  /** Absent in built-in mode. */
+  /** A cloud or local model, in key and local modes. */
   model?: LanguageModel;
+  /** The browser's built-in model, in device mode. */
+  device?: (input: DeviceInput) => Promise<AgentOutput>;
+  /** Set when device mode was chosen but the model isn't ready, so the plan says why it used rules only. */
+  unavailableNote?: string;
   readPage?: (tabId: number) => Promise<PageSnapshot | null>;
   abortSignal?: AbortSignal;
 }
@@ -51,25 +56,29 @@ export async function buildPlan(opts: BuildPlanOptions): Promise<PlanResult> {
 
   let verdicts: Verdict[] = [...decided];
   let usage: AgentOutput['usage'] | undefined;
-  let warning: string | undefined;
+  let warning: string | undefined = opts.unavailableNote;
 
   // Stalest first, so the budget goes to the tabs most likely to be forgotten.
   const queue = [...unresolved].sort((a, b) => a.lastActiveAt - b.lastActiveAt);
-  const forAgent = opts.model ? queue.slice(0, settings.maxTabsPerRun) : [];
+  const useAI = !!opts.model || !!opts.device;
+  const forAgent = useAI ? queue.slice(0, settings.maxTabsPerRun) : [];
   const forFallback: TabRecord[] = queue.filter((t) => !forAgent.includes(t));
 
-  if (forAgent.length > 0 && opts.model) {
+  if (forAgent.length > 0 && useAI) {
     try {
-      const out = await runAgent({
-        model: opts.model,
-        tabs: forAgent,
-        allRecords: everything,
-        readPage: settings.readPageText ? opts.readPage : undefined,
-        projectHints: [...new Set(items.map((i) => i.project).filter((p): p is string => !!p))],
-        now,
-        maxSteps: settings.maxSteps,
-        abortSignal: opts.abortSignal,
-      });
+      const projectHints = [...new Set(items.map((i) => i.project).filter((p): p is string => !!p))];
+      const out = opts.device
+        ? await opts.device({ tabs: forAgent, allRecords: everything, projectHints, now, abortSignal: opts.abortSignal })
+        : await runAgent({
+            model: opts.model!,
+            tabs: forAgent,
+            allRecords: everything,
+            readPage: settings.readPageText ? opts.readPage : undefined,
+            projectHints,
+            now,
+            maxSteps: settings.maxSteps,
+            abortSignal: opts.abortSignal,
+          });
       verdicts = verdicts.concat(out.verdicts);
       usage = out.usage;
       if (opts.abortSignal?.aborted) throw out.error ?? new Error('Cancelled');

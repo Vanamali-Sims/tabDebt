@@ -1,8 +1,9 @@
 import { generateText } from 'ai';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Autocomplete } from '../Autocomplete';
 import { Switch } from '../Switch';
 import { ConfigError, createModel, endpointOf, originPattern } from '@/src/lib/agent/models';
+import { deviceStatus, downloadDeviceModel, type DeviceStatus } from '@/src/lib/agent/device';
 import { notifyChanged } from '@/src/lib/channel';
 import { friendlyError } from '@/src/lib/review';
 import { DEFAULT_MODELS, type Provider, type Settings } from '@/src/lib/settings';
@@ -14,6 +15,7 @@ import { useLive, useSettings } from '@/src/lib/useAsync';
 import { formatMinutes, fromTimeInput, learnFinishTime, loadLastActive, toTimeInput } from '@/src/lib/nudge';
 
 const MODES: { id: Settings['mode']; name: string; hint: string; badge: string; free: boolean }[] = [
+  { id: 'device', name: 'On this device', hint: 'Private. Runs in your browser', badge: 'Free', free: true },
   { id: 'key', name: 'Your API key', hint: 'Claude, ChatGPT, Gemini or any provider', badge: '~$1/mo', free: false },
   { id: 'local', name: 'Local model', hint: 'Ollama or LM Studio on this computer', badge: 'Private', free: true },
   { id: 'builtin', name: 'Rules only', hint: 'No AI. Obvious tabs only, the rest stay open', badge: 'Free', free: true },
@@ -120,6 +122,7 @@ export function SettingsView() {
               <span className="grow"><strong>{m.name}</strong><span className="hint">{m.hint}</span></span>
               <span className={m.free ? 'badge badge-free' : 'badge badge-neutral'}>{m.badge}</span>
             </label>
+            {m.id === 'device' && s.mode === 'device' && <DeviceRow />}
             {m.id === 'key' && providerForm}
             {m.id === 'local' && localForm}
           </div>
@@ -177,7 +180,7 @@ export function SettingsView() {
         </div>
         <div className="settings-row">
           <span className="grow"><strong>Page text</strong><span className="hint">First few paragraphs, for unclear tabs</span></span>
-          <Switch checked={s.readPageText} disabled={s.mode === 'builtin'} label="Page text" onChange={(on) => void togglePageText(on)} />
+          <Switch checked={s.readPageText} disabled={s.mode === 'builtin' || s.mode === 'device'} label="Page text" onChange={(on) => void togglePageText(on)} />
         </div>
       </div>
 
@@ -217,6 +220,48 @@ function TestRow({ onTest, status }: { onTest: () => void; status: { kind: 'ok' 
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <button className="pill pill-quiet pill-sm" type="button" onClick={onTest}>Test connection</button>
       {status && <span className={`status ${status.kind}`} role="status">{status.text}</span>}
+    </div>
+  );
+}
+
+/** Whether Chrome's built-in model is ready, with the one-time download when it isn't. */
+function DeviceRow() {
+  const [status, setStatus] = useState<DeviceStatus | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { void deviceStatus().then(setStatus); }, []);
+
+  const download = async () => {
+    setError(null);
+    setProgress(0);
+    try {
+      await downloadDeviceModel(setProgress);
+      setStatus(await deviceStatus());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  if (status === null) return null;
+  return (
+    <div className="sub-form">
+      {status === 'available' && <p className="note">Ready. Nothing leaves this computer.</p>}
+      {(status === 'downloadable' || status === 'downloading') && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <button className="pill pill-sm" type="button" disabled={progress !== null} onClick={() => void download()}>
+            {progress !== null ? `Downloading ${Math.round(progress * 100)}%` : status === 'downloading' ? 'Finish download' : 'Download model'}
+          </button>
+          <span className="hint" style={{ fontSize: 12, color: 'var(--subtle)' }}>One time. Until then, rules sort your tabs.</span>
+        </div>
+      )}
+      {(status === 'unavailable' || status === 'unsupported') && (
+        <p className="hint" style={{ fontSize: 12, color: 'var(--subtle)' }}>
+          Not available in this browser. It needs recent desktop Chrome and enough memory. Until then, rules sort your tabs, or use your own key.
+        </p>
+      )}
+      {error && <p className="status error" role="status">{error}</p>}
     </div>
   );
 }

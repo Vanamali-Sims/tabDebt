@@ -3,8 +3,11 @@ import { DEFAULT_EXCLUSIONS } from './rules';
 export type Provider = 'openrouter' | 'anthropic' | 'openai' | 'google' | 'custom';
 
 export interface Settings {
-  /** builtin: rules only, no AI call. key: your own provider key. local: Ollama or LM Studio. */
-  mode: 'builtin' | 'key' | 'local';
+  /**
+   * device: the model built into Chrome, free and on this computer. key: your own provider key.
+   * local: Ollama or LM Studio. builtin: rules only, no AI.
+   */
+  mode: 'device' | 'builtin' | 'key' | 'local';
   provider: Provider;
   model: string;
   apiKey: string;
@@ -33,7 +36,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  mode: 'builtin',
+  mode: 'device',
   provider: 'openrouter',
   model: 'anthropic/claude-haiku-5.5',
   apiKey: '',

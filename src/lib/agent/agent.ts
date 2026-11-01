@@ -34,7 +34,7 @@ export interface AgentOutput {
   error?: unknown;
 }
 
-const decisionSchema = z.object({
+export const decisionSchema = z.object({
   ref: z.string().describe('The tab ref, for example t3'),
   action: z.enum(['done', 'read', 'project', 'task', 'keep']),
   reason: z.string().describe('One plain sentence, under 15 words'),

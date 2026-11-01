@@ -1,4 +1,5 @@
 import { ConfigError, createModel } from './agent/models';
+import { deviceStatus, runDeviceAgent, type DeviceStatus } from './agent/device';
 import { isEvening, makeBrief, saveBrief } from './brief';
 import { afterReview, effectiveFinish, loadLastActive, loadLog, saveLog } from './nudge';
 import { idbRepos } from './db';
@@ -25,9 +26,23 @@ export async function activeRecordId(): Promise<string | undefined> {
 
 export async function generatePlan(abortSignal?: AbortSignal): Promise<PlanResult> {
   const settings = await loadSettings();
+  const base = { repos, settings, now: Date.now(), activeRecordId: await activeRecordId(), readPage, abortSignal };
+  if (settings.mode === 'builtin') return buildPlan(base);
+  if (settings.mode === 'device') {
+    // Not ready on this computer: sort with the rules and say why, rather than failing the review.
+    const status = await deviceStatus();
+    if (status !== 'available') return buildPlan({ ...base, unavailableNote: deviceNote(status) });
+    return buildPlan({ ...base, device: runDeviceAgent });
+  }
   // A bad key or model name surfaces as a ConfigError the screen shows as a plain message.
-  const model = settings.mode === 'builtin' ? undefined : createModel(settings);
-  return buildPlan({ repos, settings, now: Date.now(), activeRecordId: await activeRecordId(), model, readPage, abortSignal });
+  return buildPlan({ ...base, model: createModel(settings) });
+}
+
+/** Why the on-device model couldn't be used, in plain words. */
+export function deviceNote(status: DeviceStatus): string {
+  if (status === 'downloadable') return 'The on-device AI needs a one-time download. Start it in Settings. Showing the built-in suggestions for now.';
+  if (status === 'downloading') return 'The on-device AI is still downloading. Showing the built-in suggestions for now.';
+  return "The on-device AI isn't available in this browser. Showing the built-in suggestions only. You can add your own key in Settings.";
 }
 
 export async function applyApprovedPlan(plan: PlanEntry[]): Promise<ApplyResult> {
