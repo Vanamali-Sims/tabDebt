@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isEvening, makeBrief, pickUpFrom, pickUpMeta, shouldShowMorning, shouldWriteUnreviewed, type Brief } from './brief';
+import { briefOnLeave, isEvening, makeBrief, pickUpFrom, pickUpMeta, shouldShowMorning, shouldWriteUnreviewed, type Brief } from './brief';
 import type { TabRecord } from './types';
 
 const H = 3_600_000;
@@ -76,5 +76,21 @@ describe('shouldWriteUnreviewed', () => {
     expect(shouldWriteUnreviewed({ ...wrapped, day: '2026-10-31' }, at)).toBe(true);
     expect(shouldWriteUnreviewed({ ...wrapped, kind: 'unreviewed' }, at)).toBe(true);
     expect(shouldWriteUnreviewed(null, at)).toBe(true);
+  });
+});
+
+describe('briefOnLeave', () => {
+  const at = new Date(now);
+  const open = [tab('a', 'https://github.com/x/pr/48', 60_000)];
+  it("keeps tonight's review and refreshes the pick-up", () => {
+    const wrapped: Brief = { createdAt: now - H, day: '2026-11-01', kind: 'wrapped', openCount: 9, closedCount: 12 };
+    const b = briefOnLeave(wrapped, open, at);
+    expect(b.kind).toBe('wrapped');
+    expect(b.closedCount).toBe(12);
+    expect(b.openCount).toBe(1);
+    expect(b.pickUp?.title).toBe('Title a');
+  });
+  it('writes an unreviewed brief otherwise', () => {
+    expect(briefOnLeave(null, open, at).kind).toBe('unreviewed');
   });
 });

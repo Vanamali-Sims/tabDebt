@@ -106,6 +106,17 @@ export function makeBrief(input: { kind: Brief['kind']; open: TabRecord[]; now: 
   };
 }
 
+/**
+ * The brief to keep when the person leaves (locks the screen or closes the browser) in the evening.
+ * A review from earlier that evening stays, with its pick-up refreshed to what they did after it.
+ */
+export function briefOnLeave(existing: Brief | null | undefined, open: TabRecord[], now: Date): Brief {
+  if (existing && !shouldWriteUnreviewed(existing, now)) {
+    return { ...existing, pickUp: pickUpFrom(open, now.getTime()) ?? existing.pickUp, openCount: open.length };
+  }
+  return makeBrief({ kind: 'unreviewed', open, now, closedCount: 0 });
+}
+
 // ---- Storage ----
 
 export async function loadBrief(): Promise<Brief | null> {
