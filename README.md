@@ -30,6 +30,9 @@ tab events -> Tracker -> IndexedDB
 - **Review** (`src/lib/review.ts`): rules, then agent, then a cautious fallback. Produces a plan; changes nothing.
 - **On-device model** (`src/lib/agent/device.ts`): Chrome's built-in model in small batches with a JSON schema. Same checks as the cloud agent.
 - **Brief** (`src/lib/brief.ts`): written when you wrap up or leave in the evening. Holds the pick-up and counts, so the morning view needs no AI call.
+- **Page checks** (`src/lib/pagestate.ts`, opt-in): video position and whether a text box has something typed, never the text. Unfinished videos are saved at the spot you stopped; typed tabs stay open.
+- **Home base** (`src/lib/homebase.ts`): pages opened on 4 of the last 7 days stay open.
+- **Cleared** (`src/lib/cleared.ts`): Saved shows only what tabDebt closed, grouped by review, with reasons and Undo.
 - **Nudges** (`src/lib/nudge.ts`): learns your usual finish time, scores wrap-up signals from tab events, and keeps the once-a-day budget, the "Not yet" retry and the back-off.
 
 ### Attention budget
@@ -59,6 +62,7 @@ npm run build      # production build in .output/chrome-mv3
 npm test           # unit tests (rules, tracker, agent with a mock model, executor, ...)
 npm run compile    # type check
 npm run e2e        # real Chromium: tracker, review, apply, undo, agent via a fake provider
+npm run e2e:pages  # video progress and unsent text; build with TABDEBT_E2E=1 and serve scripts/pages first
 npm run eval       # score a real model on 38 labelled tabs (needs EVAL_* env, see evals/llm.eval.ts)
 ```
 
@@ -80,7 +84,8 @@ For `npm run e2e`, serve three small pages first: `a.html`, `b.html` and `c.html
 ## Known limits
 
 - Chrome and Chromium browsers only (uses the side panel API). Firefox needs a sidebar port.
-- It cannot detect an unsent draft in an arbitrary page. Common cases are covered by the never-look list and a "compose" check.
+- Without **Unsent text** turned on, it can't see drafts inside pages. Common cases are covered by the never-look list and a "compose" check.
+- Video progress reads the page's main video, so sites that hide the player in an iframe aren't seen. YouTube and Vimeo get resume links.
 - The review runs in the side panel, so closing the panel mid-review cancels it.
 - Chrome may not let a notification open the side panel directly. If it doesn't, the panel opens on the review the next time you click the icon.
 - The on-device model needs a recent desktop Chrome with enough memory and a one-time download. Other browsers fall back to rules or your own key.

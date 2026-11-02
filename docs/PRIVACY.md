@@ -15,6 +15,7 @@ Everything is stored on your computer, inside the extension:
 - **Tomorrow's brief**: the titles and addresses of up to three tabs to pick up, and a few counts. Replaced each evening.
 - **Finish times**: the time of your last browser activity each day, for three weeks, to learn when you usually finish.
 - **Reminder history**: whether you were asked, answered or skipped, to keep reminders to once a day and back off.
+- **Pages you open often**: for each page, the days in the last two weeks you opened it, so pages you use most days stay open. Search results and browser pages aren't counted.
 
 ## What leaves your computer
 
@@ -27,6 +28,15 @@ Everything is stored on your computer, inside the extension:
 **Your own key or a local model:** when you run a review, the extension sends the **titles, addresses and usage details** (time viewed, visits, last seen, which tab opened which) of the tabs the rules couldn't decide to the AI provider **you chose**, using **your key**. If you turn on page reading, it may also send the first part of a page's text for up to ten pages per review. Requests go straight from your browser to that provider and nowhere else. The provider's own privacy terms apply to what you send them.
 
 **Local model (Ollama, LM Studio):** requests go to the address you enter, usually your own computer.
+
+## Video progress and unsent text (off until you turn them on)
+
+Each is a switch in Settings that asks the browser for your OK first. **Video progress** asks for YouTube and Vimeo; **Unsent text** asks for every site, because drafts can be anywhere. During a review, and once more before closing a tab, tabDebt checks inside open tabs and learns only:
+
+- the position and length of the main video, and whether it ended
+- whether a visible text box has something typed in it (yes or no)
+
+It never reads what you typed or the page's text, and none of it leaves your computer. Never-look sites are skipped. Turning a switch off gives back the access it asked for.
 
 ## What it never reads
 
@@ -44,7 +54,7 @@ Tabs whose address contains anything on your **Never look at** list are never re
 | tabGroups | Reopen this morning's pick-up as one labelled tab group |
 | notifications | The one "Finishing up?" prompt, only after you say yes to it |
 | contextMenus | Right-click the icon to review now, skip tonight or pause reminders |
-| scripting + site access (optional) | Read page text, only if you turn on **Page text**, and only for the AI step |
+| scripting + site access (optional) | Read page text, only if you turn on **Page text**, and only for the AI step. Check video progress or typed text, only if you turn those on |
 | Access to your AI provider's address (optional) | Asked for when you test your connection, for that one address |
 
 ## Your control
