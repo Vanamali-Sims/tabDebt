@@ -1,4 +1,5 @@
 import { hostOf } from './format';
+import { mediaVerdict, type PageState } from './pagestate';
 import type { MemoryRule, TabRecord, Verdict } from './types';
 
 const DAY = 24 * 3_600_000;
@@ -27,6 +28,8 @@ export interface RuleContext {
   memory: Pick<MemoryRule, 'host' | 'action' | 'count'>[];
   /** Record ids of tabs that other tabs were opened from (open or closed). */
   hasChildren: Set<string>;
+  /** What was seen inside pages, by record id, when the person allowed it. */
+  pageState?: Map<string, PageState>;
 }
 
 export function isExcluded(url: string, exclusions: string[]): boolean {
@@ -86,6 +89,7 @@ export function classifyByRules(tabs: TabRecord[], ctx: RuleContext): { decided:
     else if (t.audible) decided.set(t.id, verdict(t, 'keep', 'Playing audio', 1));
     else if (isExcluded(t.url, ctx.exclusions)) decided.set(t.id, verdict(t, 'keep', 'On your never-look list', 1));
     else if (/compose|draft/i.test(t.url)) decided.set(t.id, verdict(t, 'keep', 'Looks like an unsent draft', 0.9));
+    else if (ctx.pageState?.get(t.id)?.typing) decided.set(t.id, verdict(t, 'keep', 'You were typing here', 1));
   }
 
   // 2. Things you have told us to keep.
@@ -95,7 +99,14 @@ export function classifyByRules(tabs: TabRecord[], ctx: RuleContext): { decided:
     if (m) decided.set(t.id, verdict(t, 'keep', `You kept tabs from ${m.host} before`, 0.9, 'memory'));
   }
 
-  // 3. Duplicates: keep the most recently used copy.
+  // 3. Videos: how far you got says more than anything else about the tab.
+  for (const t of tabs) {
+    if (decided.has(t.id)) continue;
+    const m = mediaVerdict(t, ctx.pageState?.get(t.id), ctx.now);
+    if (m) decided.set(t.id, { ...verdict(t, m.action, m.reason, m.confidence), resumeUrl: m.resumeUrl });
+  }
+
+  // 4. Duplicates: keep the most recently used copy.
   const byUrl = new Map<string, TabRecord[]>();
   for (const t of tabs) {
     const key = normalizeUrl(t.url);
@@ -107,7 +118,7 @@ export function classifyByRules(tabs: TabRecord[], ctx: RuleContext): { decided:
     for (const t of rest) if (!decided.has(t.id)) decided.set(t.id, verdict(t, 'done', 'Duplicate of another open tab', 0.95));
   }
 
-  // 4. Recognisable finished pages.
+  // 5. Recognisable finished pages.
   for (const t of tabs) {
     if (decided.has(t.id)) continue;
     const idle = ctx.now - t.lastActiveAt;

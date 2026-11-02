@@ -5,6 +5,8 @@ import type { AppliedDecision, PlanEntry, Repos, Run, SavedItem } from './types'
 export interface TabsApi {
   remove(tabId: number): Promise<void>;
   create(url: string): Promise<void>;
+  /** A last look before closing. Returns why the tab must stay (someone started typing), or null. */
+  stillSafeToClose?(tabId: number): Promise<string | null>;
 }
 
 export interface ApplyResult {
@@ -47,6 +49,11 @@ export async function applyPlan(
       skipped.push({ recordId: rec.id, reason: rec.pinned ? 'Pinned' : 'Playing audio' });
       continue;
     }
+    const blocker = tabs.stillSafeToClose ? await tabs.stillSafeToClose(rec.tabId).catch(() => null) : null;
+    if (blocker) {
+      skipped.push({ recordId: rec.id, reason: blocker });
+      continue;
+    }
 
     let itemId: string | undefined;
     if (entry.action !== 'done') {
@@ -54,7 +61,7 @@ export async function applyPlan(
         id: crypto.randomUUID(),
         kind: entry.action,
         title: entry.task?.title ?? rec.title,
-        url: rec.url,
+        url: entry.resumeUrl ?? rec.url,
         summary: entry.summary,
         project: entry.project,
         due: entry.task?.due,

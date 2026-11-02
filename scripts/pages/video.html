@@ -1,0 +1,9 @@
+<!doctype html><title>How caching works</title>
+<video id="v" src="clip.mp4" width="640" height="360" muted playsinline></video>
+<script>
+  // Watch about half, quickly, then pause: like someone who stopped partway.
+  const v = document.getElementById('v');
+  v.playbackRate = 8;
+  v.addEventListener('timeupdate', () => { if (v.currentTime >= 15.5) v.pause(); });
+  v.play();
+</script>

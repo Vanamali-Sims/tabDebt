@@ -16,7 +16,8 @@
     "postinstall": "wxt prepare",
     "eval": "vitest run --config vitest.eval.config.ts",
     "smoke": "node scripts/smoke.cjs",
-    "e2e": "node scripts/e2e.cjs && node scripts/e2e-agent.cjs"
+    "e2e": "node scripts/e2e.cjs && node scripts/e2e-agent.cjs",
+    "e2e:pages": "node scripts/e2e-pages.cjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.88",

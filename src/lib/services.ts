@@ -6,6 +6,8 @@ import { idbRepos } from './db';
 import { notifyChanged } from './channel';
 import { applyPlan, undoRun, type ApplyResult, type TabsApi } from './executor';
 import { readPage } from './page';
+import { collectPageState, probeTab } from './pagestate';
+import { isExcluded } from './rules';
 import { buildPlan, type PlanResult } from './review';
 import { loadSettings } from './settings';
 import type { PlanEntry } from './types';
@@ -16,6 +18,12 @@ export const repos = idbRepos();
 export const tabsApi: TabsApi = {
   remove: (id) => chrome.tabs.remove(id),
   create: async (url) => void (await chrome.tabs.create({ url, active: false })),
+  // Someone may have started typing between the review and pressing Close.
+  stillSafeToClose: async (id) => {
+    const { checkTyping } = await loadSettings();
+    if (!checkTyping) return null;
+    return (await probeTab(id, { video: false, typing: true }))?.typing ? 'You started typing here' : null;
+  },
 };
 
 export async function activeRecordId(): Promise<string | undefined> {
@@ -26,7 +34,9 @@ export async function activeRecordId(): Promise<string | undefined> {
 
 export async function generatePlan(abortSignal?: AbortSignal): Promise<PlanResult> {
   const settings = await loadSettings();
-  const base = { repos, settings, now: Date.now(), activeRecordId: await activeRecordId(), readPage, abortSignal };
+  const open = await repos.tabs.listOpen();
+  const pageState = await collectPageState(open, { video: settings.checkVideo, typing: settings.checkTyping }, (url) => isExcluded(url, settings.exclusions));
+  const base = { repos, settings, now: Date.now(), activeRecordId: await activeRecordId(), readPage, abortSignal, pageState };
   if (settings.mode === 'builtin') return buildPlan(base);
   if (settings.mode === 'device') {
     // Not ready on this computer: sort with the rules and say why, rather than failing the review.
