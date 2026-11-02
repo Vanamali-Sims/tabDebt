@@ -146,7 +146,7 @@ export function ReviewView({ onClose, onApplied }: { onClose: () => void; onAppl
           <span aria-hidden="true">·</span>
           <span>Undo anytime for 30 days</span>
         </div>
-        {plan.usage && (
+        {plan.usage && plan.usage.inputTokens + plan.usage.outputTokens > 0 && (
           <p className="muted" style={{ fontSize: 12 }}>
             {(plan.usage.inputTokens + plan.usage.outputTokens).toLocaleString()} tokens · {plan.usage.pageReads} page {plan.usage.pageReads === 1 ? 'read' : 'reads'}
           </p>

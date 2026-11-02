@@ -87,7 +87,7 @@ button { cursor: pointer; }
 .summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 20px 14px; }
 .big-row { display: flex; align-items: baseline; gap: 12px; }
 .big { font-family: var(--serif); font-size: 60px; line-height: 1; font-weight: 600; font-variant-numeric: lining-nums; }
-.delta { font-size: 14px; font-weight: 600; }
+.delta { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .delta.down { color: var(--accent); }
 .delta.up { color: var(--amber); }
 .sub { margin-top: 4px; color: var(--muted); font-size: 17px; }
