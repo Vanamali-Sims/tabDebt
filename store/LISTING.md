@@ -37,7 +37,7 @@ At most one reminder a day, only near your usual finish time and only when you l
 
 **Language:** English
 
-**Store icon:** `public/icon/128.png` in the repo
+**Store icon:** `store-icon-128.png` (128×128, the leaf on dark)
 
 **Screenshots** (1280×800, in this order):
 1. `1-tabs.png`
@@ -48,7 +48,9 @@ At most one reminder a day, only near your usual finish time and only when you l
 
 **Small promo tile** (440×280): `promo-tile-440x280.png`
 
-**Marquee promo tile:** leave empty.
+**Marquee promo tile** (1400×560): `marquee-1400x560.png`. Optional, but Chrome uses it if it ever features the extension.
+
+**Global promo video:** leave empty, or paste the YouTube link to your LinkedIn video if you upload it there.
 
 **Homepage URL:** `https://github.com/Vanamali-Sims/tabDebt`
 
