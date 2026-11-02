@@ -31,6 +31,8 @@ export interface BuildPlanOptions {
   unavailableNote?: string;
   /** What was seen inside pages (video progress, typing), when allowed. */
   pageState?: Map<string, PageState>;
+  /** Pages opened on most days. */
+  homeBase?: Set<string>;
   readPage?: (tabId: number) => Promise<PageSnapshot | null>;
   abortSignal?: AbortSignal;
 }
@@ -56,6 +58,7 @@ export async function buildPlan(opts: BuildPlanOptions): Promise<PlanResult> {
     memory,
     hasChildren,
     pageState: opts.pageState,
+    homeBase: opts.homeBase,
   });
 
   let verdicts: Verdict[] = [...decided];

@@ -7,6 +7,7 @@ import { notifyChanged } from './channel';
 import { applyPlan, undoRun, type ApplyResult, type TabsApi } from './executor';
 import { readPage } from './page';
 import { collectPageState, probeTab } from './pagestate';
+import { homeBasePages, loadPageDays } from './homebase';
 import { isExcluded } from './rules';
 import { buildPlan, type PlanResult } from './review';
 import { loadSettings } from './settings';
@@ -36,7 +37,8 @@ export async function generatePlan(abortSignal?: AbortSignal): Promise<PlanResul
   const settings = await loadSettings();
   const open = await repos.tabs.listOpen();
   const pageState = await collectPageState(open, { video: settings.checkVideo, typing: settings.checkTyping }, (url) => isExcluded(url, settings.exclusions));
-  const base = { repos, settings, now: Date.now(), activeRecordId: await activeRecordId(), readPage, abortSignal, pageState };
+  const homeBase = homeBasePages(await loadPageDays());
+  const base = { repos, settings, now: Date.now(), activeRecordId: await activeRecordId(), readPage, abortSignal, pageState, homeBase };
   if (settings.mode === 'builtin') return buildPlan(base);
   if (settings.mode === 'device') {
     // Not ready on this computer: sort with the rules and say why, rather than failing the review.

@@ -138,3 +138,14 @@ describe('what was seen inside pages', () => {
     expect(classifyByRules([t], ctx()).unresolved).toHaveLength(1);
   });
 });
+
+describe('home base pages', () => {
+  it('keeps a page you open on most days, but still closes its duplicate', () => {
+    const a = tab({ url: 'https://lms.monash.edu/my/', title: 'Dashboard', lastActiveAt: NOW - 30 * HOUR });
+    const b = tab({ url: 'https://lms.monash.edu/my/', title: 'Dashboard', lastActiveAt: NOW - 40 * HOUR });
+    const c = ctx({ homeBase: new Set([normalizeUrl('https://lms.monash.edu/my/')]) });
+    expect(action([a, b], c, a)).toBe('keep');
+    expect(classifyByRules([a, b], c).decided.find((v) => v.recordId === a.id)?.reason).toBe('You open this most days');
+    expect(action([a, b], c, b)).toBe('done');
+  });
+});

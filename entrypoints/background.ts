@@ -7,6 +7,7 @@ import {
   PROMPT_SCORE, RETRY_MS, afterPrompt, afterSkip, canPrompt, effectiveFinish, loadLastActive, loadLog, pruneSignals,
   recordActivity, saveLog, switchSignal, wrapUpScore, type Signal, type SignalKind,
 } from '@/src/lib/nudge';
+import { notePageOpened } from '@/src/lib/homebase';
 import { prune } from '@/src/lib/retention';
 import { loadSettings, saveSettings } from '@/src/lib/settings';
 import { recordSnapshot } from '@/src/lib/snapshots';
@@ -223,7 +224,11 @@ export default defineBackground(() => {
   chrome.tabs.onUpdated.addListener((_id, change, tab) => {
     if (!change.url && !change.title && change.audible === undefined && change.pinned === undefined) return;
     const info = toInfo(tab);
-    if (info) run('tab updated', async () => void (await tracker.upsert(info)));
+    if (info) run('tab updated', async () => {
+      await tracker.upsert(info);
+      // Navigating within the tab you're on counts as opening that page too.
+      if (change.url && tab.active) await notePageOpened(info.url);
+    });
   });
 
   chrome.tabs.onActivated.addListener(({ tabId }) => {
@@ -232,6 +237,7 @@ export default defineBackground(() => {
       if (!info) return;
       await tracker.activated(info);
       await recordActivity();
+      await notePageOpened(info.url);
       const { prevUrl } = await chrome.storage.session.get('prevUrl');
       await chrome.storage.session.set({ prevUrl: info.url });
       const signal = switchSignal(prevUrl as string | undefined, info.url);

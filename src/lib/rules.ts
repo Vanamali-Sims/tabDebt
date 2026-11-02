@@ -30,6 +30,8 @@ export interface RuleContext {
   hasChildren: Set<string>;
   /** What was seen inside pages, by record id, when the person allowed it. */
   pageState?: Map<string, PageState>;
+  /** Normalized addresses of pages opened on most days. */
+  homeBase?: Set<string>;
 }
 
 export function isExcluded(url: string, exclusions: string[]): boolean {
@@ -118,7 +120,12 @@ export function classifyByRules(tabs: TabRecord[], ctx: RuleContext): { decided:
     for (const t of rest) if (!decided.has(t.id)) decided.set(t.id, verdict(t, 'done', 'Duplicate of another open tab', 0.95));
   }
 
-  // 5. Recognisable finished pages.
+  // 5. Pages you open on most days are there to be used, not finished.
+  for (const t of tabs) {
+    if (!decided.has(t.id) && ctx.homeBase?.has(normalizeUrl(t.url))) decided.set(t.id, verdict(t, 'keep', 'You open this most days', 0.85));
+  }
+
+  // 6. Recognisable finished pages.
   for (const t of tabs) {
     if (decided.has(t.id)) continue;
     const idle = ctx.now - t.lastActiveAt;
